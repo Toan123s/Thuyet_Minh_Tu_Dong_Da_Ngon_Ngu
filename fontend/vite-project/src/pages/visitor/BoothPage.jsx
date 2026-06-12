@@ -5,82 +5,116 @@ export default function BoothPage() {
   const [lang, setLang] = useState("vi");
   const [booth, setBooth] = useState("VinAI");
 
-  // XỬ LÝ DỊCH (GIẢ LẬP AI)
   const handleTranslate = () => {
-    let content = "";
-
-    if (booth === "VinAI") {
-      content = "VinAI là công ty trí tuệ nhân tạo hàng đầu Việt Nam, chuyên nghiên cứu và phát triển các sản phẩm AI tiên tiến.";
-    } else if (booth === "FPT Software") {
-      content = "FPT Software là công ty phần mềm hàng đầu, cung cấp giải pháp công nghệ cho khách hàng toàn cầu.";
-    }
+    let content =
+      booth === "VinAI"
+        ? "VinAI là công ty trí tuệ nhân tạo hàng đầu Việt Nam."
+        : "FPT Software là công ty công nghệ hàng đầu.";
 
     setText(`[${lang}] ${content}`);
   };
 
-  // XỬ LÝ PHÁT ÂM (TEXT TO SPEECH)
   const handleSpeak = () => {
     if (!text) return;
-
     const speech = new SpeechSynthesisUtterance(text);
-
-    // chọn giọng theo ngôn ngữ
-    if (lang === "en") {
-      speech.lang = "en-US";
-    } else {
-      speech.lang = "vi-VN";
-    }
-
+    speech.lang = lang === "en" ? "en-US" : "vi-VN";
     speechSynthesis.speak(speech);
   };
 
   return (
-    <div style={{ padding: "30px", fontFamily: "Arial" }}>
-      <h2>🎤 Thuyết minh gian hàng</h2>
-
-      {/* CHỌN BOOTH */}
-      <div style={{ marginBottom: "15px" }}>
-        <label>Gian hàng: </label>
-        <select onChange={(e) => setBooth(e.target.value)}>
-          <option value="VinAI">VinAI</option>
-          <option value="FPT Software">FPT Software</option>
-        </select>
-      </div>
-
-      {/* CHỌN NGÔN NGỮ */}
-      <div style={{ marginBottom: "15px" }}>
-        <label>Ngôn ngữ: </label>
-        <select onChange={(e) => setLang(e.target.value)}>
-          <option value="vi">Tiếng Việt</option>
-          <option value="en">English</option>
-        </select>
-      </div>
-
-      {/* BUTTON */}
-      <div>
-        <button onClick={handleTranslate}>📄 Dịch</button>
-
-        <button
-          onClick={handleSpeak}
-          style={{ marginLeft: "10px" }}
-        >
-          🔊 Phát
-        </button>
-      </div>
-
-      {/* HIỂN THỊ TEXT */}
+    <div
+      style={{
+        backgroundColor: "#eef2f7",
+        minHeight: "100vh",
+        padding: "40px",
+        fontFamily: "Segoe UI",
+      }}
+    >
       <div
         style={{
-          marginTop: "20px",
-          padding: "15px",
-          border: "1px solid #ccc",
-          borderRadius: "5px",
-          minHeight: "80px"
+          maxWidth: "700px",
+          margin: "auto",
+          background: "#fff",
+          padding: "30px",
+          borderRadius: "12px",
+          boxShadow: "0 8px 25px rgba(0,0,0,0.1)",
         }}
       >
-        {text || "Nội dung sẽ hiển thị tại đây..."}
+        <h2 style={{ marginBottom: "20px" }}>
+          🎤 Thuyết minh gian hàng
+        </h2>
+
+        {/* Booth */}
+        <div style={{ marginBottom: "15px" }}>
+          <label>Gian hàng</label>
+          <br />
+          <select
+            onChange={(e) => setBooth(e.target.value)}
+            style={{ padding: "8px", width: "100%" }}
+          >
+            <option>VinAI</option>
+            <option>FPT Software</option>
+          </select>
+        </div>
+
+        {/* Language */}
+        <div style={{ marginBottom: "20px" }}>
+          <label>Ngôn ngữ</label>
+          <br />
+          <select
+            onChange={(e) => setLang(e.target.value)}
+            style={{ padding: "8px", width: "100%" }}
+          >
+            <option value="vi">Tiếng Việt</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ marginBottom: "20px" }}>
+          <button
+            onClick={handleTranslate}
+            style={{
+              background: "#4CAF50",
+              color: "white",
+              padding: "10px 20px",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+          >
+            📄 Dịch
+          </button>
+
+          <button
+            onClick={handleSpeak}
+            style={{
+              background: "#2196F3",
+              color: "white",
+              padding: "10px 20px",
+              border: "none",
+              borderRadius: "6px",
+              marginLeft: "10px",
+              cursor: "pointer",
+            }}
+          >
+            🔊 Phát
+          </button>
+        </div>
+
+        {/* Content */}
+        <div
+          style={{
+            background: "#f9fafc",
+            border: "1px solid #ddd",
+            padding: "20px",
+            borderRadius: "8px",
+            minHeight: "100px",
+          }}
+        >
+          {text || "Nội dung thuyết minh sẽ hiển thị tại đây..."}
+        </div>
       </div>
     </div>
   );
 }
-``
