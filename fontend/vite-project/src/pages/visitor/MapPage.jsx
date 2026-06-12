@@ -5,17 +5,16 @@ export default function MapPage() {
 
   return (
     <div style={{ textAlign: "center", marginTop: "80px" }}>
-      <h2>🗺 Bản đồ gian hàng</h2>
-      <p>Chọn gian hàng để nghe thuyết minh</p>
+      <h2>🗺 Chọn gian hàng</h2>
 
       <button onClick={() => navigate("/booth/1")}>
-        Gian hàng VinAI
+        VinAI
       </button>
 
       <br /><br />
 
       <button onClick={() => navigate("/booth/2")}>
-        Gian hàng FPT
+        FPT Software
       </button>
     </div>
   );

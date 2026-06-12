@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import BoothPage from "./pages/visitor/BoothPage";
+import AppRouter from "./routes/AppRouter";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <BoothPage />
+  <AppRouter />
 );

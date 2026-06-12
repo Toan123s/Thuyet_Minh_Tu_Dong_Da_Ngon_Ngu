@@ -3,166 +3,55 @@ import { useState } from "react";
 export default function BoothPage() {
   const [text, setText] = useState("");
   const [lang, setLang] = useState("vi");
-  const [booth, setBooth] = useState("VinAI");
 
   const handleTranslate = () => {
-<<<<<<< HEAD
-    let content =
-      booth === "VinAI"
-        ? "VinAI là công ty trí tuệ nhân tạo hàng đầu Việt Nam."
-        : "FPT Software là công ty công nghệ hàng đầu.";
-=======
-    let content = booth === "VinAI"
-      ? "VinAI là công ty AI hàng đầu Việt Nam."
-      : "FPT Software là công ty công nghệ hàng đầu.";
->>>>>>> 076ed7828b546fe245f0a8fd9a90efd260715770
-
-    setText(`[${lang}] ${content}`);
+    if (lang === "vi") setText("VinAI là công ty AI hàng đầu Việt Nam.");
+    if (lang === "en") setText("VinAI is a leading AI company in Vietnam.");
   };
 
   const handleSpeak = () => {
-<<<<<<< HEAD
-    if (!text) return;
-=======
->>>>>>> 076ed7828b546fe245f0a8fd9a90efd260715770
     const speech = new SpeechSynthesisUtterance(text);
     speech.lang = lang === "en" ? "en-US" : "vi-VN";
     speechSynthesis.speak(speech);
   };
 
   return (
-<<<<<<< HEAD
     <div
       style={{
-        backgroundColor: "#eef2f7",
+        background: "linear-gradient(135deg, #007bff, #00c6ff)",
         minHeight: "100vh",
-        padding: "40px",
-        fontFamily: "Segoe UI",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center"
       }}
     >
       <div
         style={{
-          maxWidth: "700px",
-          margin: "auto",
-          background: "#fff",
-          padding: "30px",
+          background: "white",
+          padding: "25px",
           borderRadius: "12px",
-          boxShadow: "0 8px 25px rgba(0,0,0,0.1)",
+          width: "320px"
         }}
       >
-        <h2 style={{ marginBottom: "20px" }}>
-          🎤 Thuyết minh gian hàng
-        </h2>
+        <h2 style={{ textAlign: "center" }}>🎤 Booth</h2>
 
-        {/* Booth */}
-        <div style={{ marginBottom: "15px" }}>
-          <label>Gian hàng</label>
-          <br />
-          <select
-            onChange={(e) => setBooth(e.target.value)}
-            style={{ padding: "8px", width: "100%" }}
-          >
-            <option>VinAI</option>
-            <option>FPT Software</option>
-          </select>
-        </div>
-
-        {/* Language */}
-        <div style={{ marginBottom: "20px" }}>
-          <label>Ngôn ngữ</label>
-          <br />
-          <select
-            onChange={(e) => setLang(e.target.value)}
-            style={{ padding: "8px", width: "100%" }}
-          >
-            <option value="vi">Tiếng Việt</option>
-            <option value="en">English</option>
-          </select>
-        </div>
-
-        {/* Buttons */}
-        <div style={{ marginBottom: "20px" }}>
-          <button
-            onClick={handleTranslate}
-            style={{
-              background: "#4CAF50",
-              color: "white",
-              padding: "10px 20px",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-            }}
-          >
-            📄 Dịch
-          </button>
-
-          <button
-            onClick={handleSpeak}
-            style={{
-              background: "#2196F3",
-              color: "white",
-              padding: "10px 20px",
-              border: "none",
-              borderRadius: "6px",
-              marginLeft: "10px",
-              cursor: "pointer",
-            }}
-          >
-            🔊 Phát
-          </button>
-        </div>
-
-        {/* Content */}
-        <div
-          style={{
-            background: "#f9fafc",
-            border: "1px solid #ddd",
-            padding: "20px",
-            borderRadius: "8px",
-            minHeight: "100px",
-          }}
+        <select
+          onChange={(e) => setLang(e.target.value)}
+          style={{ width: "100%", marginBottom: "10px" }}
         >
-          {text || "Nội dung thuyết minh sẽ hiển thị tại đây..."}
-=======
-    <div style={{ background: "#f5f5f5", minHeight: "100vh", padding: 40 }}>
-      <div style={{
-        maxWidth: 600,
-        margin: "auto",
-        padding: 30,
-        background: "#fff",
-        borderRadius: 10,
-        boxShadow: "0 0 10px rgba(0,0,0,0.1)"
-      }}>
-        <h2>🎤 Thuyết minh gian hàng</h2>
-
-        <p>Gian hàng:</p>
-        <select onChange={(e) => setBooth(e.target.value)}>
-          <option>VinAI</option>
-          <option>FPT Software</option>
-        </select>
-
-        <p>Ngôn ngữ:</p>
-        <select onChange={(e) => setLang(e.target.value)}>
           <option value="vi">Tiếng Việt</option>
           <option value="en">English</option>
         </select>
 
-        <br /><br />
-
-        <button onClick={handleTranslate}>📄 Dịch</button>
+        <button onClick={handleTranslate}>Dịch</button>
         <button onClick={handleSpeak} style={{ marginLeft: 10 }}>
-          🔊 Phát
+          Phát
         </button>
 
-        <div style={{ marginTop: 20, padding: 10, border: "1px solid #ccc" }}>
-          {text || "Nội dung sẽ hiển thị tại đây..."}
->>>>>>> 076ed7828b546fe245f0a8fd9a90efd260715770
+        <div style={{ marginTop: 15 }}>
+          {text}
         </div>
       </div>
     </div>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 076ed7828b546fe245f0a8fd9a90efd260715770

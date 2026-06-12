@@ -5,8 +5,7 @@ export default function LocationPage() {
 
   return (
     <div style={{ textAlign: "center", marginTop: "80px" }}>
-      <h2>📍 Xác định vị trí</h2>
-      <p>Đang xác định vị trí của bạn...</p>
+      <h2>📍 Đang xác định vị trí...</h2>
 
       <button
         onClick={() => navigate("/map")}
@@ -17,4 +16,3 @@ export default function LocationPage() {
     </div>
   );
 }
-``
