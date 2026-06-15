@@ -1,0 +1,5 @@
+node_modules/
+.vs/
+vite-project/.vs/
+*.user
+*.suo

@@ -1,57 +1,85 @@
-import apiClient from "./apiClient";
+import axios from 'axios';
 
-// ─── Vendor Service ───────────────────────────────────────────
-// Lấy dữ liệu riêng của vendor đang đăng nhập
-// Dùng tại:
-//   - VD1 – Dashboard Vendor (/vendor/dashboard)
-//   - VD4 – Thống kê gian hàng (/vendor/stats/:boothId)
+// Cấu hình đường dẫn gốc dẫn tới server Backend ASP.NET Core của nhóm ông
+// (Ông có thể sửa lại cái port 5000/7000 này tùy theo cấu hình thực tế bên Backend nhé)
+const BASE_URL = 'http://localhost:5000/api'; 
 
 const vendorService = {
-  /**
-   * Lấy thông tin vendor hiện tại (từ JWT)
-   * Returns: { id, accountId, companyName, representativeName, phoneNumber }
-   */
-  getMe: () =>
-    apiClient.get("/vendor/me"),
+  
+  getDashboardStats: async (vendorId) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/vendor/dashboard/${vendorId}`);
+      return response.data; 
+    } catch (error) {
+      console.error("Lỗi lấy dữ liệu Dashboard:", error);
+      throw error;
+    }
+  },
 
-  /**
-   * Lấy danh sách booth của vendor (chỉ booth thuộc vendor đó)
-   * Returns: [{ id, name, eventName, isActive, listensToday }]
-   */
-  getMyBooths: () =>
-    apiClient.get("/vendor/booths"),
+ 
+  getNarrationDetails: async (boothId) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/vendor/narrations/${boothId}`);
+      return response.data; 
+    } catch (error) {
+      console.error("Lỗi lấy dữ liệu thuyết minh:", error);
+      throw error;
+    }
+  },
 
-  /**
-   * Lấy thống kê tổng hôm nay của vendor
-   * Returns: { totalBooths, listensToday, totalLanguages }
-   */
-  getStatsToday: () =>
-    apiClient.get("/vendor/stats/today"),
+  
+  requestAiTranslation: async (boothId, title, content) => {
+    try {
+      const response = await axios.post(`${BASE_URL}/vendor/narrations/${boothId}/translate`, {
+        title,
+        content
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Lỗi kích hoạt Azure OpenAI:", error);
+      throw error;
+    }
+  },
 
-  /**
-   * Lấy thống kê tổng hợp của một booth
-   * @param {string|number} boothId
-   * @param {string} range - "7d" | "30d" | "month"
-   * Returns: { totalListens, avgDuration, topLanguage }
-   */
-  getBoothStats: (boothId, range = "7d") =>
-    apiClient.get(`/vendor/stats/${boothId}?range=${range}`),
+  
+  getBoothMedia: async (boothId) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/vendor/media/${boothId}`);
+      return response.data; 
+    } catch (error) {
+      console.error("Lỗi lấy dữ liệu đa phương tiện:", error);
+      throw error;
+    }
+  },
 
-  /**
-   * Lấy phân phối lượt nghe theo giờ trong ngày
-   * @param {string|number} boothId
-   * Returns: [{ hour: number, count: number }] (24 phần tử)
-   */
-  getBoothHourly: (boothId) =>
-    apiClient.get(`/vendor/stats/${boothId}/hourly`),
+  uploadBoothImage: async (boothId, fileObj, caption) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', fileObj);
+      formData.append('caption', caption);
 
-  /**
-   * Lấy tỷ lệ ngôn ngữ của một booth
-   * @param {string|number} boothId
-   * Returns: [{ languageCode: string, count: number, pct: number }]
-   */
-  getBoothLanguages: (boothId) =>
-    apiClient.get(`/vendor/stats/${boothId}/languages`),
+      const response = await axios.post(`${BASE_URL}/vendor/media/${boothId}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Lỗi upload hình ảnh:", error);
+      throw error;
+    }
+  },
+
+  
+  getAnalyticsStats: async (boothId, range) => {
+    try {
+      const response = await axios.get(`${BASE_URL}/vendor/stats/${boothId}?range=${range}`);
+      return response.data;
+    } catch (error) {
+      console.error("Lỗi lấy dữ liệu thống kê:", error);
+      throw error;
+    }
+  }
 };
 
 export default vendorService;
