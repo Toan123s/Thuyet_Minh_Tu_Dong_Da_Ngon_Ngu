@@ -1,85 +1,44 @@
-import axios from 'axios';
-
-// Cấu hình đường dẫn gốc dẫn tới server Backend ASP.NET Core của nhóm ông
-// (Ông có thể sửa lại cái port 5000/7000 này tùy theo cấu hình thực tế bên Backend nhé)
-const BASE_URL = 'http://localhost:5000/api'; 
+// vendorService.js
+import apiClient from "./apiClient";
 
 const vendorService = {
-  
-  getDashboardStats: async (vendorId) => {
-    try {
-      const response = await axios.get(`${BASE_URL}/vendor/dashboard/${vendorId}`);
-      return response.data; 
-    } catch (error) {
-      console.error("Lỗi lấy dữ liệu Dashboard:", error);
-      throw error;
-    }
+  getMe:        () => apiClient.get("/vendor/me"),
+  getMyBooths:  () => apiClient.get("/vendor/booths"),
+  getStatsToday: () => apiClient.get("/vendor/stats/today"),
+
+  getAnalyticsStats: (boothId, range = "7days") =>
+    apiClient.get(`/vendor/stats/${boothId}?range=${range}`),
+
+  // ── Images ───────────────────────────────────────────────
+  getImages: (boothId) =>
+    apiClient.get(`/booths/${boothId}/images`),
+
+  uploadBoothImage: (boothId, fileObj, caption) => {
+    const formData = new FormData();
+    formData.append("file", fileObj);
+    formData.append("caption", caption);
+    return fetch(`${import.meta.env.VITE_API_URL}/images`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      body: formData,
+    }).then(res => res.json());
   },
 
- 
-  getNarrationDetails: async (boothId) => {
-    try {
-      const response = await axios.get(`${BASE_URL}/vendor/narrations/${boothId}`);
-      return response.data; 
-    } catch (error) {
-      console.error("Lỗi lấy dữ liệu thuyết minh:", error);
-      throw error;
-    }
-  },
+  updateImageCaption: (imageId, caption) =>
+    apiClient.put(`/images/${imageId}`, { caption }),
 
-  
-  requestAiTranslation: async (boothId, title, content) => {
-    try {
-      const response = await axios.post(`${BASE_URL}/vendor/narrations/${boothId}/translate`, {
-        title,
-        content
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi kích hoạt Azure OpenAI:", error);
-      throw error;
-    }
-  },
+  deleteImage: (imageId) =>
+    apiClient.delete(`/images/${imageId}`),
 
-  
-  getBoothMedia: async (boothId) => {
-    try {
-      const response = await axios.get(`${BASE_URL}/vendor/media/${boothId}`);
-      return response.data; 
-    } catch (error) {
-      console.error("Lỗi lấy dữ liệu đa phương tiện:", error);
-      throw error;
-    }
-  },
+  // ── Videos ───────────────────────────────────────────────
+  getVideos: (boothId) =>
+    apiClient.get(`/booths/${boothId}/videos`),
 
-  uploadBoothImage: async (boothId, fileObj, caption) => {
-    try {
-      const formData = new FormData();
-      formData.append('file', fileObj);
-      formData.append('caption', caption);
+  addVideo: (boothId, videoUrl, title) =>
+    apiClient.post("/videos", { boothId, videoUrl, title }),
 
-      const response = await axios.post(`${BASE_URL}/vendor/media/${boothId}/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi upload hình ảnh:", error);
-      throw error;
-    }
-  },
-
-  
-  getAnalyticsStats: async (boothId, range) => {
-    try {
-      const response = await axios.get(`${BASE_URL}/vendor/stats/${boothId}?range=${range}`);
-      return response.data;
-    } catch (error) {
-      console.error("Lỗi lấy dữ liệu thống kê:", error);
-      throw error;
-    }
-  }
+  deleteVideo: (videoId) =>
+    apiClient.delete(`/videos/${videoId}`),
 };
 
 export default vendorService;

@@ -1,122 +1,171 @@
-import React, { useState } from 'react';
+// StatisticPage.jsx
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import StatCard from '../../components/StatCard/StatCard';
+import Toast, { useToast } from '../../components/Toast/Toast';
+import LoadingSpinner from '../../components/LoadingSpinner/LoadingSpinner';
+import vendorService from '../../services/vendorService';
 import styles from './StatisticPage.module.css';
-import { useNavigate } from 'react-router-dom';
 
-const StatisticPage = () => {
-  const navigate = useNavigate();
+const IconHeadphone = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>;
+const IconClock     = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+const IconGlobe     = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
+const IconMoney     = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
+
+function formatDuration(seconds) {
+  if (!seconds) return "—";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m} phút ${s} giây`;
+}
+
+const LANG_NAMES = {
+  vi: "Tiếng Việt",
+  en: "English",
+  ja: "日本語",
+  ko: "한국어",
+  zh: "中文",
+};
+
+export default function StatisticPage() {
+  const navigate    = useNavigate();
+  const { boothId } = useParams();
+  const { toasts, showToast } = useToast();
+
   const [filterRange, setFilterRange] = useState('7days');
+  const [stats,       setStats]       = useState(null);
+  const [loading,     setLoading]     = useState(true);
 
-  // Bổ sung thêm dữ liệu doanh thu giả lập theo yêu cầu của ông Toàn
-  const statsData = {
-    totalViews: '1,240 lượt',
-    avgDuration: '2 phút 15 giây',
-    topLanguage: 'Tiếng Việt (VI)',
-    totalRevenue: '15,400,000 VND', // 💰 Thêm tổng doanh thu
-    hourlyData: [
-      { hour: '08h', views: 40 },
-      { hour: '10h', views: 85 },
-      { hour: '12h', views: 50 },
-      { hour: '14h', views: 120 },
-      { hour: '16h', views: 95 },
-      { hour: '18h', views: 30 }
-    ],
-    languageData: [
-      { lang: 'Tiếng Việt', code: 'VI', percentage: 60, color: '#4f46e5' },
-      { lang: 'English', code: 'EN', percentage: 25, color: '#10b981' },
-      { lang: '日本語', code: 'JA', percentage: 10, color: '#f59e0b' },
-      { lang: '한국어', code: 'KO', percentage: 5, color: '#ef4444' }
-    ],
-    // Dữ liệu doanh thu theo thời gian
-    revenueHistory: [
-      { period: 'Hôm nay', amount: '1,200,000 VND', count: '120 lượt' },
-      { period: 'Tuần này', amount: '5,800,000 VND', count: '580 lượt' },
-      { period: 'Tháng này', amount: '15,400,000 VND', count: '1,240 lượt' }
-    ]
-  };
+  const fetchStats = useCallback(() => {
+    setLoading(true);
+    vendorService.getAnalyticsStats(boothId, filterRange)
+      .then(setStats)
+      .catch(() => showToast("Không thể tải dữ liệu thống kê.", "error"))
+      .finally(() => setLoading(false));
+  }, [boothId, filterRange]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  function handleExport() {
+    showToast("Tính năng xuất báo cáo đang phát triển...", "warning");
+  }
 
   return (
     <div className={styles.container}>
+      <Toast toasts={toasts} />
+
       <button className={styles.btnBack} onClick={() => navigate('/vendor/dashboard')}>
         ⬅️ Quay lại Tổng quan
       </button>
 
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>📊 Thống kê số liệu & Doanh thu</h1>
-          <p className={styles.subtitle}>Theo dõi hiệu suất lượt nghe và doanh thu thu phí dịch vụ thuyết minh tại gian hàng.</p>
+          <h1 className={styles.title}>📊 Thống kê số liệu</h1>
+          <p className={styles.subtitle}>
+            Theo dõi hiệu suất lượt nghe tại gian hàng theo thời gian thực.
+          </p>
         </div>
         <div className={styles.filterGroup}>
-          <select className={styles.select} value={filterRange} onChange={(e) => setFilterRange(e.target.value)}>
+          <select
+            className={styles.select}
+            value={filterRange}
+            onChange={(e) => setFilterRange(e.target.value)}
+          >
             <option value="7days">7 ngày qua</option>
             <option value="30days">30 ngày qua</option>
             <option value="month">Tháng này</option>
           </select>
-          <button className={styles.btnExport} onClick={() => alert('Đang xuất báo cáo tài chính...')}>
+          <button className={styles.btnExport} onClick={handleExport}>
             📥 Xuất báo cáo
           </button>
         </div>
       </div>
 
-      {/* Grid Stat Cards (Tăng lên thành 4 cột để nhét card Doanh thu) */}
-      <div className={styles.statsGrid}>
-        <div className={`${styles.statCard} ${styles.borderSuccess}`}>
-          <h4 className={styles.cardLabel}>Tổng số lượt nghe</h4>
-          <h2 className={`${styles.cardValue} ${styles.textSuccess}`}>{statsData.totalViews}</h2>
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "60px" }}>
+          <LoadingSpinner size="lg" label="Đang tải thống kê..." />
         </div>
-        <div className={`${styles.statCard} ${styles.borderPrimary}`}>
-          <h4 className={styles.cardLabel}>Thời lượng nghe trung bình</h4>
-          <h2 className={`${styles.cardValue} ${styles.textPrimary}`}>{statsData.avgDuration}</h2>
-        </div>
-        <div className={`${styles.statCard} ${styles.borderWarning}`}>
-          <h4 className={styles.cardLabel}>Ngôn ngữ phổ biến</h4>
-          <h2 className={`${styles.cardValue} ${styles.textWarning}`}>{statsData.topLanguage}</h2>
-        </div>
-        {/* Card doanh thu mới tinh cực nổi bật */}
-        <div className={`${styles.statCard} ${styles.borderDanger}`}>
-          <h4 className={styles.cardLabel}>💰 Tổng doanh thu ước tính</h4>
-          <h2 className={`${styles.cardValue} ${styles.textDanger}`}>{statsData.totalRevenue}</h2>
-        </div>
-      </div>
-
-      <div className={styles.chartSection}>
-        <div className={styles.chartCard}>
-          <h3 className={styles.chartTitle}>⏱️ Lượt nghe theo khung giờ trong ngày</h3>
-          <div className={styles.barChartHourly}>
-            {statsData.hourlyData.map((item, index) => (
-              <div key={index} className={styles.hourlyColumnWrapper}>
-                <div className={styles.columnValue}>{item.views}</div>
-                <div className={styles.hourlyBar} style={{ height: `${item.views > 100 ? 100 : item.views}%` }}></div>
-                <div className={styles.columnLabel}>{item.hour}</div>
-              </div>
-            ))}
+      ) : (
+        <>
+          <div className={styles.statsGrid}>
+            <StatCard
+              icon={<IconHeadphone />}
+              label="Tổng số lượt nghe"
+              value={stats?.total?.toLocaleString() ?? "0"}
+              color="green"
+            />
+            <StatCard
+              icon={<IconClock />}
+              label="Thời lượng nghe trung bình"
+              value={formatDuration(stats?.avgDurationSec)}
+              color="blue"
+            />
+            <StatCard
+              icon={<IconGlobe />}
+              label="Ngôn ngữ phổ biến"
+              value={LANG_NAMES[stats?.topLanguage] ?? stats?.topLanguage ?? "—"}
+              color="orange"
+            />
           </div>
-        </div>
 
-        {/* Khối bảng thống kê doanh thu chi tiết ngày/tuần/tháng */}
-        <div className={styles.chartCard}>
-          <h3 className={styles.chartTitle}>💵 Chi tiết thu nhập theo chu kỳ</h3>
-          <table className={styles.revenueTable}>
-            <thead>
-              <tr>
-                <th>Khoảng thời gian</th>
-                <th>Số lượt dịch vụ</th>
-                <th>Doanh thu</th>
-              </tr>
-            </thead>
-            <tbody>
-              {statsData.revenueHistory.map((rev, index) => (
-                <tr key={index}>
-                  <td><strong>{rev.period}</strong></td>
-                  <td>{rev.count}</td>
-                  <td className={styles.textDanger}><strong>{rev.amount}</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <div className={styles.chartSection}>
+            {/* Biểu đồ theo giờ */}
+            <div className={styles.chartCard}>
+              <h3 className={styles.chartTitle}>⏱️ Lượt nghe theo khung giờ</h3>
+              {!stats?.hourlyData?.length ? (
+                <p style={{ color: "#9ca3af", textAlign: "center", padding: "20px" }}>
+                  Chưa có dữ liệu.
+                </p>
+              ) : (
+                <div className={styles.barChartHourly}>
+                  {stats.hourlyData.map((item, i) => {
+                    const max = Math.max(...stats.hourlyData.map(x => x.views), 1);
+                    return (
+                      <div key={i} className={styles.hourlyColumnWrapper}>
+                        <div className={styles.columnValue}>{item.views}</div>
+                        <div
+                          className={styles.hourlyBar}
+                          style={{ height: `${Math.round((item.views / max) * 100)}%` }}
+                        />
+                        <div className={styles.columnLabel}>{item.hour}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Thống kê ngôn ngữ */}
+            <div className={styles.chartCard}>
+              <h3 className={styles.chartTitle}>🌐 Thống kê ngôn ngữ</h3>
+              {!stats?.langData?.length ? (
+                <p style={{ color: "#9ca3af", textAlign: "center", padding: "20px" }}>
+                  Chưa có dữ liệu.
+                </p>
+              ) : (
+                <table className={styles.revenueTable}>
+                  <thead>
+                    <tr>
+                      <th>Ngôn ngữ</th>
+                      <th>Lượt nghe</th>
+                      <th>Tỷ lệ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.langData.map((lang, i) => (
+                      <tr key={i}>
+                        <td><strong>{LANG_NAMES[lang.languageCode] ?? lang.languageCode}</strong></td>
+                        <td>{lang.count}</td>
+                        <td className={styles.textDanger}><strong>{lang.pct}%</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
-};
-
-export default StatisticPage;
+}
