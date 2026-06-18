@@ -1,73 +1,118 @@
-import React, { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
+import eventService from "../../services/eventService";
+import "./LandingPage.css";
 
-// Hỗ trợ tất cả các ngôn ngữ phổ biến
 const LANGUAGE_DICTS = {
   vi: { welcome: "Chào mừng bạn đến với sự kiện", start: "Bắt đầu tham quan 🚀", map: "Xem bản đồ 🗺️", select: "Chọn ngôn ngữ:" },
-  en: { welcome: "Welcome to the Event", start: "Start Tour 🚀", map: "View Map 🗺️", select: "Select Language:" },
-  ja: { welcome: "イベントへようこそ", start: "ツアー bắt đầu 🚀", map: "地図を見る 🗺️", select: "言語選択:" },
-  zh: { welcome: "欢迎光临活动", start: "开始参观 🚀", map: "查看地图 🗺️", select: "选择语言:" }
+  en: { welcome: "Welcome to the Event",            start: "Start Tour 🚀",           map: "View Map 🗺️",      select: "Select Language:" },
+  ja: { welcome: "イベントへようこそ",                     start: "ツアー開始 🚀",             map: "地図を見る 🗺️",    select: "言語選択:" },
+  zh: { welcome: "欢迎光临活动",                          start: "开始参观 🚀",               map: "查看地图 🗺️",      select: "选择语言:" },
+  ko: { welcome: "이벤트에 오신 것을 환영합니다",              start: "투어 시작 🚀",              map: "지도 보기 🗺️",     select: "언어 선택:" },
+  fr: { welcome: "Bienvenue à l'événement",         start: "Commencer la visite 🚀",  map: "Voir la carte 🗺️", select: "Choisir la langue:" },
 };
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const eventId = searchParams.get("event") || "EVT001";
-  
-  const [lang, setLang] = useState("vi");
-  const [eventInfo, setEventInfo] = useState({ logo: "🎪", name: "Đang tải...", location: "...", date: "..." });
+  const eventId = searchParams.get("event") || "1";
+
+  const [lang,      setLang]      = useState("vi");
+  const [eventInfo, setEventInfo] = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState(null);
 
   useEffect(() => {
-    // 1. Tự động detect ngôn ngữ hệ thống từ trình duyệt
     const browserLang = navigator.language.split("-")[0];
     if (LANGUAGE_DICTS[browserLang]) setLang(browserLang);
+    else {
+      const saved = localStorage.getItem("lang");
+      if (saved && LANGUAGE_DICTS[saved]) setLang(saved);
+    }
+  }, []);
 
-    // 2. Giả lập Gọi GET /api/events/:id
-    setTimeout(() => {
-      setEventInfo({
-        logo: "🍔",
-        name: "Lễ Hội Ẩm Thực Đa Quốc Gia 2026",
-        location: "Công viên Tao Đàn, Quận 1, TP.HCM",
-        date: "15/06/2026 - 20/06/2026"
-      });
-    }, 300);
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    eventService.getById(eventId)
+      .then(setEventInfo)
+      .catch(() => setError("Không thể tải thông tin sự kiện. Vui lòng thử lại."))
+      .finally(() => setLoading(false));
   }, [eventId]);
 
-  const t = LANGUAGE_DICTS[lang] || LANGUAGE_DICTS["en"];
+  function handleLangChange(newLang) {
+    setLang(newLang);
+    localStorage.setItem("lang", newLang);
+  }
+
+  const t          = LANGUAGE_DICTS[lang] ?? LANGUAGE_DICTS["en"];
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString("vi-VN") : "";
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={{ fontSize: 60 }}>{eventInfo.logo}</div>
-        <h2 style={{ margin: "10px 0" }}>{eventInfo.name}</h2>
-        <p style={{ color: "#666", fontSize: 14 }}>📍 {eventInfo.location}</p>
-        <p style={{ color: "#999", fontSize: 13 }}>📅 {eventInfo.date}</p>
+    <div className="lp-container">
+      <div className="lp-card">
+        {loading ? (
+          <div style={{ padding: "40px 0" }}>
+            <LoadingSpinner size="lg" label="Đang tải sự kiện..." />
+          </div>
+        ) : error ? (
+          <div className="lp-error">
+            <p>⚠️ {error}</p>
+            <button
+              className="lp-btn-secondary"
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                eventService.getById(eventId)
+                  .then(setEventInfo)
+                  .catch(() => setError("Không thể tải thông tin sự kiện. Vui lòng thử lại."))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="lp-card__icon">🎪</div>
+            <h2 className="lp-card__title">{eventInfo?.name}</h2>
+            <p className="lp-card__location">📍 {eventInfo?.location}</p>
+            <p className="lp-card__date">
+              📅 {formatDate(eventInfo?.startDate)} – {formatDate(eventInfo?.endDate)}
+            </p>
 
-        <hr style={{ margin: "20px 0", border: "0.5px solid #eee" }} />
+            <hr className="lp-divider" />
 
-        <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>{t.select}</label>
-        <select value={lang} onChange={(e) => setLang(e.target.value)} style={styles.select}>
-          <option value="vi">🇻🇳 Tiếng Việt</option>
-          <option value="en">🇬🇧 English</option>
-          <option value="ja">🇯🇵 日本語</option>
-          <option value="zh">🇨🇳 中文</option>
-        </select>
+            <label className="lp-label">{t.select}</label>
+            <select
+              value={lang}
+              onChange={(e) => handleLangChange(e.target.value)}
+              className="lp-select"
+            >
+              <option value="vi">🇻🇳 Tiếng Việt</option>
+              <option value="en">🇬🇧 English</option>
+              <option value="ja">🇯🇵 日本語</option>
+              <option value="zh">🇨🇳 中文</option>
+              <option value="ko">🇰🇷 한국어</option>
+              <option value="fr">🇫🇷 Français</option>
+            </select>
 
-        <button onClick={() => navigate(`/location?lang=${lang}&event=${eventId}`)} style={styles.btnPrimary}>
-          {t.start}
-        </button>
-        <button onClick={() => navigate(`/map?event=${eventId}&lang=${lang}`)} style={styles.btnSecondary}>
-          {t.map}
-        </button>
+            <button
+              onClick={() => navigate(`/location?lang=${lang}&event=${eventId}`)}
+              className="lp-btn-primary"
+            >
+              {t.start}
+            </button>
+            <button
+              onClick={() => navigate(`/map?event=${eventId}&lang=${lang}`)}
+              className="lp-btn-secondary"
+            >
+              {t.map}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f5f7fb", padding: 15, fontFamily: "sans-serif" },
-  card: { backgroundColor: "#fff", padding: 25, borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.08)", maxWidth: 400, width: "100%", textAlign: "center" },
-  select: { width: "100%", padding: 12, borderRadius: 8, border: "1px solid #ccc", marginBottom: 20, fontSize: 15 },
-  btnPrimary: { width: "100%", padding: 14, backgroundColor: "#007bff", color: "#fff", border: "none", borderRadius: 8, fontSize: 16, fontWeight: "bold", cursor: "pointer", marginBottom: 10 },
-  btnSecondary: { width: "100%", padding: 14, backgroundColor: "#6c757d", color: "#fff", border: "none", borderRadius: 8, fontSize: 16, fontWeight: "bold", cursor: "pointer" }
-};
