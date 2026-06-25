@@ -1,23 +1,24 @@
-namespace backend.Models;
+using System;
+using System.Collections.Generic;
 
-public class Account
+namespace backend.Models
 {
-    public int Id { get; set; }
-    public string Username { get; set; } = string.Empty;
-    public string PasswordHash { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
+   public class Account
+    {
+        public int Id { get; set; }
 
-    /// <summary>"Admin" | "Vendor"</summary>
-    public string Role { get; set; } = "Vendor";
+        public string Username { get; set; } = string.Empty;
 
-    /// <summary>"Active" | "Inactive"</summary>
-    public string Status { get; set; } = "Active";
+        public string PasswordHash { get; set; } = string.Empty;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public string Email { get; set; } = string.Empty;
 
-    // Helper không map vào DB
-    public bool IsActive => Status == "Active";
+        public string Role { get; set; } = string.Empty;
 
-    // ── Navigation ────────────────────────────────────────────
-    public Vendor? Vendor { get; set; }
+        public bool IsActive { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+
+        public Vendor? Vendor { get; set; }
+    }
 }

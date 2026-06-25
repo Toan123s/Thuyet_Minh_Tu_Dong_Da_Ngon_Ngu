@@ -9,7 +9,13 @@ namespace backend.Controllers;
 public class MediaController : ControllerBase
 {
     private readonly MediaService _service;
-    public MediaController(MediaService service) { _service = service; }
+    private readonly IWebHostEnvironment _env;
+
+    public MediaController(MediaService service, IWebHostEnvironment env)
+    {
+        _service = service;
+        _env     = env;
+    }
 
     // ── Images ────────────────────────────────────────────────
 
@@ -21,7 +27,52 @@ public class MediaController : ControllerBase
         return Ok(result);
     }
 
-    // POST /api/images
+    // ✅ FIX: POST /api/images/upload — nhận file thật (multipart/form-data)
+    // Frontend upload ảnh bằng FormData { file, boothId, caption }
+    [HttpPost("images/upload")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadImage(
+        [FromForm] IFormFile   file,
+        [FromForm] int         boothId,
+        [FromForm] string?     caption = null)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "Không có file được gửi lên." });
+
+        if (file.Length > 5 * 1024 * 1024)
+            return BadRequest(new { message = "File quá lớn (giới hạn 5MB)." });
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType.ToLower()))
+            return BadRequest(new { message = "Chỉ chấp nhận file ảnh (jpg, png, gif, webp)." });
+
+        try
+        {
+            // Lưu file vào wwwroot/images/
+            var imagesDir = Path.Combine(_env.WebRootPath, "images");
+            if (!Directory.Exists(imagesDir))
+                Directory.CreateDirectory(imagesDir);
+
+            var ext      = Path.GetExtension(file.FileName).ToLower();
+            var fileName = $"{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(imagesDir, fileName);
+
+            using (var stream = System.IO.File.Create(filePath))
+                await file.CopyToAsync(stream);
+
+            // URL để frontend hiển thị
+            var imageUrl = $"/images/{fileName}";
+
+            var result = await _service.AddImageAsync(boothId, imageUrl, caption);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi lưu file: {ex.Message}" });
+        }
+    }
+
+    // POST /api/images — nhận JSON {boothId, imageUrl, caption} (giữ lại để tương thích)
     [HttpPost("images")]
     public async Task<IActionResult> AddImage([FromBody] AddImageRequest request)
     {

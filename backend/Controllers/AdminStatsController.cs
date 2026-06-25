@@ -63,10 +63,10 @@ public class AdminStatsController : ControllerBase
 
         var data = await _db.VisitLogs
             .Where(v => v.VisitedAt >= from)
-            .GroupBy(v => new { v.BoothId, v.Booth.Name })
+            .GroupBy(v => new { v.BoothId, v.Booth.BoothName })
             .Select(g => new {
                 boothId = g.Key.BoothId,
-                name    = g.Key.Name,
+                name    = g.Key.BoothName,
                 listens = g.Count(),
             })
             .OrderByDescending(x => x.listens)
@@ -86,7 +86,7 @@ public class AdminStatsController : ControllerBase
             .Take(limit)
             .Select(v => new {
                 v.Id,
-                boothName  = v.Booth.Name,
+                boothName  = v.Booth.BoothName,
                 v.LanguageCode,
                 v.DeviceType,
                 v.Duration,

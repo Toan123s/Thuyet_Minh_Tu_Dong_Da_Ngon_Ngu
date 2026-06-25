@@ -23,7 +23,7 @@ public class AuthService
         if (!account.IsActive)
             throw new UnauthorizedAccessException("Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên.");
 
-        if (!PasswordHelper.Verify(request.Password, account.PasswordHash))
+        if (!PasswordHelper.VerifyPassword(request.Password, account.PasswordHash))
             throw new UnauthorizedAccessException("Tên đăng nhập hoặc mật khẩu không đúng.");
 
         var token = _jwt.GenerateToken(account);

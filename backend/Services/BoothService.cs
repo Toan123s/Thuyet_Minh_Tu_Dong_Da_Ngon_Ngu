@@ -1,98 +1,100 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using backend.Models;
 using backend.Repositories;
+using backend.DTOs.Booth;
+using backend.Helpers;
 
-namespace backend.Services;
-
-public class BoothService
+namespace backend.Services
 {
-    private readonly BoothRepository _repo;
-    public BoothService(BoothRepository repo) { _repo = repo; }
-
-    public async Task<object> GetAllAsync(int page, int pageSize, int? eventId, int? categoryId, string? search)
+    public interface IBoothService
     {
-        var (data, total, active) = await _repo.GetAllAsync(page, pageSize, eventId, categoryId, search);
-        return new
+        Task<IEnumerable<Booth>> GetByEventId(int eventId);
+        Task<Booth> GetById(int id);
+        Task<Booth> Create(Booth booth);
+        Task<Booth> Update(Booth booth);
+        Task<bool> Delete(int id);
+        Task<NearestBoothResponse> FindNearest(NearestBoothRequest request);
+    }
+
+    public class BoothService : IBoothService
+    {
+        private readonly IBoothRepository _boothRepo;
+
+        public BoothService(IBoothRepository boothRepo)
         {
-            items = data.Select(MapToResponse),
-            total,
-            active,
-            page,
-            totalPages = (int)Math.Ceiling(total / (double)pageSize),
-        };
-    }
+            _boothRepo = boothRepo;
+        }
 
-    public async Task<object> GetByIdAsync(int id)
-    {
-        var booth = await _repo.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy gian hàng ID = {id}.");
-        return MapToResponse(booth);
-    }
-
-    public async Task<object> CreateAsync(BoothRequest request)
-    {
-        var booth = new Booth
+        public async Task<IEnumerable<Booth>> GetByEventId(int eventId)
         {
-            EventId     = request.EventId,
-            VendorId    = request.VendorId,
-            CategoryId  = request.CategoryId,
-            Name        = request.Name,
-            Description = request.Description,
-            Latitude    = request.Latitude,
-            Longitude   = request.Longitude,
-            Radius      = request.Radius ?? 15,
-            IsActive    = true,
-            CreatedAt   = DateTime.UtcNow,
-        };
-        var created = await _repo.CreateAsync(booth);
-        return MapToResponse(created);
+            return await _boothRepo.GetByEventId(eventId);
+        }
+
+        public async Task<Booth> GetById(int id)
+        {
+            return await _boothRepo.GetById(id);
+        }
+
+        public async Task<Booth> Create(Booth booth)
+        {
+            booth.CreatedAt = DateTime.UtcNow;
+            booth.IsActive = true;
+            return await _boothRepo.Create(booth);
+        }
+
+        public async Task<Booth> Update(Booth booth)
+        {
+            return await _boothRepo.Update(booth);
+        }
+
+        public async Task<bool> Delete(int id)
+        {
+            return await _boothRepo.Delete(id);
+        }
+
+        public async Task<NearestBoothResponse> FindNearest(NearestBoothRequest request)
+        {
+            var booths = await _boothRepo.GetByEventId(request.EventId);
+            var activeBooths = booths.Where(b => b.IsActive).ToList();
+
+            if (!activeBooths.Any())
+            {
+                return new NearestBoothResponse
+                {
+                    BoothId = 0,
+                    BoothName = "Không có gian hàng nào",
+                    Distance = 0,
+                    IsWithinGeofence = false,
+                    GeofenceRadius = 0
+                };
+            }
+
+            var boothsWithDistance = activeBooths.Select(b => new
+            {
+                Booth = b,
+                Distance = HaversineHelper.CalculateDistance(
+                    (double)request.Latitude,
+                    (double)request.Longitude,
+                    (double)b.Latitude,
+                    (double)b.Longitude)
+            }).ToList();
+
+            var nearest = boothsWithDistance.OrderBy(x => x.Distance).First();
+
+            double radius = (double)(request.Radius ?? 15);
+            bool isWithin = nearest.Distance <= radius;
+
+            return new NearestBoothResponse
+            {
+                BoothId = nearest.Booth.Id,
+                BoothName = nearest.Booth.BoothName ?? "",  // ← SỬA: BoothName
+                Distance = (decimal)nearest.Distance,
+                IsWithinGeofence = isWithin,
+                GeofenceRadius = nearest.Booth.Radius
+            };
+        }
     }
-
-    public async Task<object> UpdateAsync(int id, BoothRequest request)
-    {
-        var booth = await _repo.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy gian hàng ID = {id}.");
-
-        booth.Name        = request.Name;
-        booth.Description = request.Description;
-        booth.Latitude    = request.Latitude;
-        booth.Longitude   = request.Longitude;
-        booth.Radius      = request.Radius ?? booth.Radius;
-        booth.CategoryId  = request.CategoryId;
-
-        await _repo.UpdateAsync(booth);
-        return MapToResponse(booth);
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        var booth = await _repo.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy gian hàng ID = {id}.");
-        await _repo.DeleteAsync(booth);
-    }
-
-    public async Task<List<Booth>> GetByEventAsync(int eventId)
-        => await _repo.GetByEventAsync(eventId);
-
-    private static object MapToResponse(Booth b) => new
-    {
-        b.Id, b.Name, b.Description,
-        b.Latitude, b.Longitude, b.Radius,
-        b.IsActive, b.CreatedAt,
-        b.EventId, b.VendorId, b.CategoryId,
-        eventName    = b.Event?.Name,
-        vendorName   = b.Vendor?.CompanyName,
-        categoryName = b.Category?.Name,
-    };
-}
-
-public class BoothRequest
-{
-    public int      EventId     { get; set; }
-    public int      VendorId    { get; set; }
-    public int?     CategoryId  { get; set; }
-    public string   Name        { get; set; } = string.Empty;
-    public string?  Description { get; set; }
-    public decimal  Latitude    { get; set; }
-    public decimal  Longitude   { get; set; }
-    public decimal? Radius      { get; set; }
 }

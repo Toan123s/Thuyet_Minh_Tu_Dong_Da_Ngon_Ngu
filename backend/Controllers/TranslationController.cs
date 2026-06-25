@@ -1,5 +1,7 @@
+// TranslationController.cs — paste đè toàn bộ (thêm using DTOs)
 using Microsoft.AspNetCore.Mvc;
 using backend.Services;
+using backend.DTOs.Translation;
 
 namespace backend.Controllers;
 

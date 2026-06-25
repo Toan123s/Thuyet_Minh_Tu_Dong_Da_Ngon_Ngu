@@ -1,70 +1,85 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using backend.Data;
 using backend.Models;
+using backend.Data;
 
-namespace backend.Repositories;
-
-public class BoothRepository
+namespace backend.Repositories
 {
-    private readonly AppDbContext _db;
-    public BoothRepository(AppDbContext db) { _db = db; }
-
-    public async Task<(List<Booth> Data, int Total, int Active)> GetAllAsync(
-        int page, int pageSize, int? eventId, int? categoryId, string? search)
+    public interface IBoothRepository
     {
-        var query = _db.Booths
-            .Include(b => b.Event)
-            .Include(b => b.Vendor)
-            .Include(b => b.Category)
-            .AsQueryable();
-
-        if (eventId.HasValue)    query = query.Where(b => b.EventId == eventId);
-        if (categoryId.HasValue) query = query.Where(b => b.CategoryId == categoryId);
-        if (!string.IsNullOrEmpty(search))
-            query = query.Where(b => b.Name.Contains(search) || (b.Description != null && b.Description.Contains(search)));
-
-        var total  = await query.CountAsync();
-        var active = await query.CountAsync(b => b.IsActive);
-        var data   = await query
-            .OrderByDescending(b => b.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        return (data, total, active);
+        Task<IEnumerable<Booth>> GetAll();
+        Task<IEnumerable<Booth>> GetByEventId(int eventId);
+        Task<Booth> GetById(int id);
+        Task<Booth> Create(Booth booth);
+        Task<Booth> Update(Booth booth);
+        Task<bool> Delete(int id);
     }
 
-    public async Task<Booth?> GetByIdAsync(int id)
-        => await _db.Booths
-            .Include(b => b.Event)
-            .Include(b => b.Vendor)
-            .Include(b => b.Category)
-            .Include(b => b.Narration)
-            .Include(b => b.Images)
-            .Include(b => b.Videos)
-            .FirstOrDefaultAsync(b => b.Id == id);
-
-    public async Task<Booth> CreateAsync(Booth booth)
+    public class BoothRepository : IBoothRepository
     {
-        _db.Booths.Add(booth);
-        await _db.SaveChangesAsync();
-        return booth;
-    }
+        private readonly AppDbContext _db;
 
-    public async Task UpdateAsync(Booth booth)
-    {
-        _db.Booths.Update(booth);
-        await _db.SaveChangesAsync();
-    }
+        public BoothRepository(AppDbContext db)
+        {
+            _db = db;
+        }
 
-    public async Task DeleteAsync(Booth booth)
-    {
-        _db.Booths.Remove(booth);
-        await _db.SaveChangesAsync();
-    }
+        public async Task<IEnumerable<Booth>> GetAll()
+        {
+            return await _db.Booths
+                .Include(b => b.Event)
+                .Include(b => b.Category)
+                .Include(b => b.Vendor)
+                .ToListAsync();
+        }
 
-    public async Task<List<Booth>> GetByEventAsync(int eventId)
-        => await _db.Booths
-            .Where(b => b.EventId == eventId && b.IsActive)
-            .ToListAsync();
+        public async Task<IEnumerable<Booth>> GetByEventId(int eventId)
+        {
+            return await _db.Booths
+                .Where(b => b.EventId == eventId)
+                .Include(b => b.Event)
+                .Include(b => b.Category)
+                .Include(b => b.Vendor)
+                .ToListAsync();
+        }
+
+        public async Task<Booth> GetById(int id)
+        {
+            return await _db.Booths
+                .Include(b => b.Event)
+                .Include(b => b.Category)
+                .Include(b => b.Vendor)
+                .Include(b => b.Narration)
+                .Include(b => b.Images)
+                .Include(b => b.Videos)
+                .FirstOrDefaultAsync(b => b.Id == id);
+        }
+
+        public async Task<Booth> Create(Booth booth)
+        {
+            _db.Booths.Add(booth);
+            await _db.SaveChangesAsync();
+            return booth;
+        }
+
+        public async Task<Booth> Update(Booth booth)
+        {
+            _db.Booths.Update(booth);
+            await _db.SaveChangesAsync();
+            return booth;
+        }
+
+        public async Task<bool> Delete(int id)
+        {
+            var booth = await _db.Booths.FindAsync(id);
+            if (booth == null) return false;
+
+            _db.Booths.Remove(booth);
+            await _db.SaveChangesAsync();
+            return true;
+        }
+    }
 }

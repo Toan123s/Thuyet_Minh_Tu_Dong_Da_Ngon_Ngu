@@ -1,0 +1,45 @@
+.spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 16px;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Kích thước */
+.spinner--sm {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
+.spinner--md {
+  width: 40px;
+  height: 40px;
+  border-width: 4px;
+}
+
+.spinner--lg {
+  width: 60px;
+  height: 60px;
+  border-width: 5px;
+}
+
+.spinner-label {
+  color: #666;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

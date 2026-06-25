@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
-using backend.Services;
+using backend.DTOs.Booth;
+using backend.Helpers;
 
 namespace backend.Controllers;
 
@@ -10,86 +11,255 @@ namespace backend.Controllers;
 [Route("api/booths")]
 public class BoothController : ControllerBase
 {
-    private readonly BoothService _service;
+    private readonly AppDbContext _db;
+    public BoothController(AppDbContext db) { _db = db; }
 
-    public BoothController(BoothService service)
-    {
-        _service = service;
-    }
-
+    // ✅ GET: api/booths — lấy tất cả (Admin dùng cho BoothManagementPage)
     [HttpGet]
     public async Task<IActionResult> GetAll(
-        [FromQuery] int     page       = 1,
-        [FromQuery] int     pageSize   = 10,
-        [FromQuery] int?    eventId    = null,
-        [FromQuery] int?    categoryId = null,
-        [FromQuery] string? search     = null)
-    {
-        var result = await _service.GetAllAsync(page, pageSize, eventId, categoryId, search);
-        return Ok(result);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id)
-    {
-        try { return Ok(await _service.GetByIdAsync(id)); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] BoothRequest request)
+        [FromQuery] int?    eventId      = null,
+        [FromQuery] int?    categoryId   = null,
+        [FromQuery] string? search       = null,
+        [FromQuery] int     page         = 1,
+        [FromQuery] int     pageSize     = 20)
     {
         try
         {
-            var result = await _service.CreateAsync(request);
-            return Ok(result);
+            var query = _db.Booths
+                .Include(b => b.Event)
+                .Include(b => b.Category)
+                .Include(b => b.Vendor)
+                .AsQueryable();
+
+            if (eventId.HasValue)
+                query = query.Where(b => b.EventId == eventId.Value);
+
+            if (categoryId.HasValue)
+                query = query.Where(b => b.CategoryId == categoryId.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(b => b.BoothName != null && b.BoothName.Contains(search));
+
+            var total = await query.CountAsync();
+            var active = await query.CountAsync(b => b.IsActive);
+
+            var items = await query
+                .OrderByDescending(b => b.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(b => new
+                {
+                    b.Id,
+                    name        = b.BoothName,
+                    b.Description,
+                    b.Latitude,
+                    b.Longitude,
+                    b.Radius,
+                    b.IsActive,
+                    b.EventId,
+                    b.VendorId,
+                    b.CategoryId,
+                    b.CreatedAt,
+                    eventName    = b.Event != null ? b.Event.Name : null,
+                    categoryName = b.Category != null ? b.Category.Name : null,
+                    vendorName   = b.Vendor != null ? b.Vendor.CompanyName : null,
+                })
+                .ToListAsync();
+
+            return Ok(new { items, total, active, page, pageSize, totalPages = (int)Math.Ceiling(total / (double)pageSize) });
         }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi server: {ex.Message}" });
+        }
     }
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] BoothRequest request)
+    // GET: api/booths/event/{eventId} — visitor/vendor dùng
+    [HttpGet("event/{eventId}")]
+    public async Task<IActionResult> GetByEventId(int eventId)
     {
-        try { return Ok(await _service.UpdateAsync(id, request)); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        try
+        {
+            var booths = await _db.Booths
+                .Where(b => b.EventId == eventId && b.IsActive)
+                .Include(b => b.Category)
+                .Include(b => b.Vendor)
+                .Select(b => new
+                {
+                    b.Id,
+                    BoothName    = b.BoothName,
+                    b.Description,
+                    b.Latitude,
+                    b.Longitude,
+                    b.Radius,
+                    b.IsActive,
+                    CategoryName = b.Category != null ? b.Category.Name : null,
+                    VendorName   = b.Vendor != null ? b.Vendor.CompanyName : null
+                })
+                .ToListAsync();
+
+            return Ok(booths);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi server: {ex.Message}" });
+        }
     }
 
+    // GET: api/booths/{id}
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        try
+        {
+            var booth = await _db.Booths
+                .Include(b => b.Event)
+                .Include(b => b.Category)
+                .Include(b => b.Vendor)
+                .Include(b => b.Narration)
+                .Include(b => b.Images)
+                .Include(b => b.Videos)
+                .FirstOrDefaultAsync(b => b.Id == id);
+
+            if (booth == null)
+                return NotFound(new { message = $"Không tìm thấy gian hàng ID {id}" });
+
+            return Ok(booth);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi server: {ex.Message}" });
+        }
+    }
+
+    // ✅ POST: api/booths — tạo gian hàng mới
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateBoothRequest request)
+    {
+        try
+        {
+            var booth = new Booth
+            {
+                EventId     = request.EventId,
+                VendorId    = request.VendorId,
+                CategoryId  = request.CategoryId,
+                BoothName   = request.Name,
+                Description = request.Description,
+                Latitude    = request.Latitude,
+                Longitude   = request.Longitude,
+                Radius      = request.Radius,
+                IsActive    = true,
+                CreatedAt   = DateTime.UtcNow,
+            };
+            _db.Booths.Add(booth);
+            await _db.SaveChangesAsync();
+            return Ok(new { booth.Id, message = "Tạo gian hàng thành công" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi tạo gian hàng: {ex.Message}" });
+        }
+    }
+
+    // ✅ PUT: api/booths/{id} — cập nhật
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] CreateBoothRequest request)
+    {
+        try
+        {
+            var booth = await _db.Booths.FindAsync(id);
+            if (booth == null)
+                return NotFound(new { message = $"Không tìm thấy gian hàng ID {id}" });
+
+            booth.EventId     = request.EventId;
+            booth.VendorId    = request.VendorId;
+            booth.CategoryId  = request.CategoryId;
+            booth.BoothName   = request.Name;
+            booth.Description = request.Description;
+            booth.Latitude    = request.Latitude;
+            booth.Longitude   = request.Longitude;
+            booth.Radius      = request.Radius;
+
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "Cập nhật thành công" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi cập nhật: {ex.Message}" });
+        }
+    }
+
+    // ✅ DELETE: api/booths/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        try { await _service.DeleteAsync(id); return NoContent(); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        try
+        {
+            var booth = await _db.Booths.FindAsync(id);
+            if (booth == null)
+                return NotFound(new { message = $"Không tìm thấy gian hàng ID {id}" });
+
+            _db.Booths.Remove(booth);
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "Đã xóa gian hàng" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi xóa: {ex.Message}" });
+        }
     }
 
-    [HttpGet("{id}/qrcode")]
-    public IActionResult GetQRCode(int id)
+    // POST: api/booths/nearest
+    [HttpPost("nearest")]
+    public async Task<IActionResult> FindNearest([FromBody] NearestBoothRequest request)
     {
-        return Ok(new { qrCodeUrl = $"/qr/{id}.png" });
+        try
+        {
+            var booths = await _db.Booths
+                .Where(b => b.EventId == request.EventId && b.IsActive)
+                .ToListAsync();
+
+            if (!booths.Any())
+                return NotFound(new { message = "Không có booth nào trong sự kiện này!" });
+
+            var nearest = booths
+                .Select(b => new
+                {
+                    Booth    = b,
+                    Distance = HaversineHelper.CalculateDistance(
+                        (double)request.Latitude, (double)request.Longitude,
+                        (double)b.Latitude,       (double)b.Longitude)
+                })
+                .OrderBy(x => x.Distance)
+                .First();
+
+            bool isWithin = nearest.Distance <= (double)nearest.Booth.Radius;
+
+            return Ok(new NearestBoothResponse
+            {
+                BoothId          = nearest.Booth.Id,
+                BoothName        = nearest.Booth.BoothName ?? "",
+                Distance         = (decimal)nearest.Distance,
+                IsWithinGeofence = isWithin,
+                GeofenceRadius   = nearest.Booth.Radius
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi server: {ex.Message}" });
+        }
     }
+}
 
-    [HttpGet("nearest")]
-    public async Task<IActionResult> FindNearest(
-        [FromQuery] double lat,
-        [FromQuery] double lng,
-        [FromQuery] int    eventId,
-        [FromQuery] double radius = 50)
-    {
-        var booths = await _service.GetByEventAsync(eventId);
-
-        var nearest = booths
-            .Select(b => new {
-                b.Id, b.Name,
-                distance = Math.Sqrt(
-                    Math.Pow((double)b.Latitude - lat, 2) +
-                    Math.Pow((double)b.Longitude - lng, 2)) * 111000
-            })
-            .Where(b => b.distance <= radius)
-            .OrderBy(b => b.distance)
-            .FirstOrDefault();
-
-        if (nearest == null)
-            return NotFound(new { message = "Không tìm thấy gian hàng gần đây." });
-
-        return Ok(nearest);
-    }
+// DTO tạo/sửa booth
+public class CreateBoothRequest
+{
+    public int      EventId     { get; set; }
+    public int      VendorId    { get; set; }   // int, không nullable
+    public int?     CategoryId  { get; set; }   // nullable OK (Booth.CategoryId là int?)
+    public string   Name        { get; set; } = string.Empty;
+    public string?  Description { get; set; }
+    public decimal  Latitude    { get; set; }
+    public decimal  Longitude   { get; set; }
+    public decimal  Radius      { get; set; } = 15;
 }

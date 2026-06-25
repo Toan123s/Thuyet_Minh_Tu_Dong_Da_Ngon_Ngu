@@ -1,0 +1,105 @@
+/* QrGenerator.css */
+.qrgen {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  max-width: 24rem;
+}
+
+.qrgen__card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.qrgen__canvas {
+  display: block;
+  border-radius: 0.5rem;
+  transition: opacity 0.3s;
+  max-width: 100%;
+}
+
+.qrgen__booth-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0;
+  text-align: center;
+}
+
+.qrgen__loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  border-radius: 1rem;
+  z-index: 2;
+}
+.qrgen__loader::after {
+  content: "";
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: qr-spin 0.7s linear infinite;
+}
+
+.qrgen__url-box {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.qrgen__url-label { font-size: 0.9rem; font-weight: 600; color: #6b7280; flex-shrink: 0; }
+.qrgen__url-text {
+  font-size: 0.9rem;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qrgen__actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+.qrgen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+}
+.qrgen-btn--primary { background: #2563eb; color: #fff; }
+.qrgen-btn--primary:hover { background: #1d4ed8; }
+
+.qrgen-btn--outline { background: transparent; color: #2563eb; border: 1px solid #93c5fd; }
+.qrgen-btn--outline:hover { background: #eff6ff; }
+.qrgen-btn--copied { color: #16a34a; border-color: #86efac; }
+
+.qrgen-btn--ghost { background: #f3f4f6; color: #374151; }
+.qrgen-btn--ghost:hover { background: #e5e7eb; }
+
+@keyframes qr-spin {
+  to { transform: rotate(360deg); }
+}

@@ -1,31 +1,57 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
 using backend.Models;
 
-namespace backend.Repositories;
-
-public class VisitLogRepository
+namespace backend.Repositories
 {
-    private readonly AppDbContext _db;
-    public VisitLogRepository(AppDbContext db) { _db = db; }
-
-    public async Task<VisitLog> CreateAsync(VisitLog log)
+    public class VisitLogRepository : IVisitLogRepository
     {
-        _db.VisitLogs.Add(log);
-        await _db.SaveChangesAsync();
-        return log;
-    }
+        private readonly AppDbContext _db;
 
-    public async Task<List<VisitLog>> GetByBoothIdAsync(int boothId, DateTime? from = null)
-    {
-        var query = _db.VisitLogs.Where(v => v.BoothId == boothId);
-        if (from.HasValue) query = query.Where(v => v.VisitedAt >= from);
-        return await query.OrderByDescending(v => v.VisitedAt).ToListAsync();
-    }
+        public VisitLogRepository(AppDbContext db)
+        {
+            _db = db;
+        }
 
-    public async Task<int> CountTodayByBoothAsync(int boothId)
-    {
-        var today = DateTime.UtcNow.Date;
-        return await _db.VisitLogs.CountAsync(v => v.BoothId == boothId && v.VisitedAt.Date == today);
+        public async Task<VisitLog> Create(VisitLog visitLog)
+        {
+            visitLog.VisitedAt = DateTime.UtcNow;
+            _db.VisitLogs.Add(visitLog);
+            await _db.SaveChangesAsync();
+            return visitLog;
+        }
+
+        public async Task<IEnumerable<VisitLog>> GetByFilters(int? eventId, int? boothId, DateTime? fromDate, DateTime? toDate)
+        {
+            var query = _db.VisitLogs
+                .Include(v => v.Booth)
+                .ThenInclude(b => b.Event)
+                .AsQueryable();
+
+            if (boothId.HasValue)
+                query = query.Where(v => v.BoothId == boothId.Value);
+
+            if (eventId.HasValue)
+                query = query.Where(v => v.Booth.EventId == eventId.Value);
+
+            if (fromDate.HasValue)
+                query = query.Where(v => v.VisitedAt >= fromDate.Value);
+
+            if (toDate.HasValue)
+                query = query.Where(v => v.VisitedAt <= toDate.Value);
+
+            return await query.ToListAsync();
+        }
+
+        public async Task<IEnumerable<VisitLog>> GetByBoothId(int boothId)
+        {
+            return await _db.VisitLogs
+                .Where(v => v.BoothId == boothId)
+                .ToListAsync();
+        }
     }
 }

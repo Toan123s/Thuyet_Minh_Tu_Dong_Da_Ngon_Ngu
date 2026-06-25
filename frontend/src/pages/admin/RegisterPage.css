@@ -1,0 +1,63 @@
+/* RegisterPage.css */
+.rp-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.25rem; font-family: sans-serif;
+}
+
+.rp-card { background: #fff; border-radius: 1.25rem; padding: 2rem 1.75rem; width: 100%; max-width: 29rem; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2); }
+
+.rp-brand { text-align: center; margin-bottom: 1.75rem; }
+.rp-brand__icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.rp-brand__title { margin: 0 0 0.25rem; font-size: 1.4rem; font-weight: 700; color: #111; }
+.rp-brand__sub { margin: 0; font-size: 0.95rem; color: #6b7280; }
+
+.rp-steps { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 1.75rem; }
+.rp-step { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+.rp-step__circle {
+  width: 2.25rem; height: 2.25rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; font-weight: bold; background-color: #e5e7eb; color: #6b7280; transition: all 0.3s;
+}
+.rp-step__circle--active { background-color: #7c3aed; color: #fff; }
+.rp-step__circle--done { background-color: #16a34a; color: #fff; }
+.rp-step__label { font-size: 0.75rem; color: #6b7280; white-space: nowrap; }
+.rp-step__line { height: 2px; width: 2.75rem; background-color: #e5e7eb; margin-bottom: 1.1rem; transition: background-color 0.3s; }
+.rp-step__line--done { background-color: #16a34a; }
+
+.rp-section-title { font-size: 1.05rem; font-weight: 700; color: #374151; margin: 0 0 1.125rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f0f0f0; }
+
+.rp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem; }
+.rp-field { margin-bottom: 1rem; }
+.rp-field label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem; }
+.rp-field input { width: 100%; padding: 0.7rem 0.875rem; border: 1.5px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem; box-sizing: border-box; transition: border-color 0.2s; outline: none; }
+.rp-field input:focus { border-color: #7c3aed; }
+.rp-field input.error { border-color: #dc2626; }
+.rp-field__err { font-size: 0.8rem; color: #dc2626; margin-top: 0.2rem; }
+
+.rp-error { background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 0.5rem; padding: 0.7rem 0.875rem; font-size: 0.95rem; color: #dc2626; margin-bottom: 1.125rem; }
+
+.rp-btn-primary {
+  width: 100%; padding: 0.9rem; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff;
+  border: none; border-radius: 0.65rem; font-size: 1.05rem; font-weight: bold; cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s; margin-top: 0.5rem;
+}
+.rp-btn-primary:hover { opacity: 0.9; }
+.rp-btn-primary:active { transform: scale(0.98); }
+.rp-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.rp-login-link { text-align: center; font-size: 0.9rem; color: #6b7280; margin-top: 1.125rem; }
+.rp-login-link button { background: none; border: none; color: #7c3aed; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
+
+.rp-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1.25rem; backdrop-filter: blur(4px); }
+.rp-modal { background: #fff; border-radius: 1.25rem; padding: 1.5rem; width: 100%; max-width: 26rem; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.rp-modal__header { text-align: center; margin-bottom: 1.125rem; }
+.rp-modal__icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.rp-modal__title { margin: 0 0 0.25rem; font-size: 1.25rem; font-weight: 700; }
+.rp-modal__sub { font-size: 0.9rem; color: #6b7280; margin: 0; }
+.rp-modal__qr { background: #f9f9f9; border: 1px solid #eee; border-radius: 0.75rem; padding: 0.65rem; text-align: center; margin: 1.125rem 0; }
+.rp-modal__qr img { width: 100%; max-height: 13rem; object-fit: contain; }
+.rp-modal__info { font-size: 0.9rem; background: #f1f5f9; border-radius: 0.5rem; padding: 0.65rem 0.9rem; color: #334155; line-height: 1.7; margin-bottom: 1.125rem; }
+.rp-modal__btn { width: 100%; padding: 0.9rem; background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; border: none; border-radius: 0.65rem; font-size: 1rem; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
+.rp-modal__btn:hover { opacity: 0.9; }
+.rp-modal__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.rp-modal__skip { display: block; text-align: center; margin-top: 0.7rem; font-size: 0.85rem; color: #9ca3af; background: none; border: none; cursor: pointer; width: 100%; padding: 0.4rem; }
+.rp-modal__skip:hover { color: #6b7280; }

@@ -109,10 +109,10 @@ public class ReportController : ControllerBase
             query = query.Where(v => v.Booth.EventId == eventId);
 
         var data = await query
-            .GroupBy(v => new { v.BoothId, v.Booth.Name })
+            .GroupBy(v => new { v.BoothId, v.Booth.BoothName })
             .Select(g => new {
                 id     = g.Key.BoothId,
-                name   = g.Key.Name,
+                name   = g.Key.BoothName,
                 visits = g.Count(),
                 avgDur = Math.Round(g.Average(v => (double)v.Duration), 1),
             })

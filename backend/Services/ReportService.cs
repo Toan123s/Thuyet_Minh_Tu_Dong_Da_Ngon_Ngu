@@ -1,104 +1,66 @@
-using Microsoft.EntityFrameworkCore;
+// ReportService.cs — paste đè toàn bộ (Booth.Name → Booth.BoothName)
 using backend.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services;
 
 public class ReportService
 {
     private readonly AppDbContext _db;
+    public ReportService(AppDbContext db) { _db = db; }
 
-    public ReportService(AppDbContext db)
+    public async Task<object> GetSummaryAsync(int? eventId, DateTime? from, DateTime? to)
     {
-        _db = db;
+        var query = _db.VisitLogs.Include(v => v.Booth).AsQueryable();
+        if (eventId.HasValue) query = query.Where(v => v.Booth.EventId == eventId);
+        if (from.HasValue)    query = query.Where(v => v.VisitedAt >= from);
+        if (to.HasValue)      query = query.Where(v => v.VisitedAt <= to);
+        var total   = await query.CountAsync();
+        var avgDur  = total == 0 ? 0 : await query.AverageAsync(v => (double)v.Duration);
+        var langs   = await query.Select(v => v.LanguageCode).Distinct().CountAsync();
+        return new { total, avgDurationSec = Math.Round(avgDur), languages = langs };
     }
 
-    public async Task<object> GetSummaryAsync(int eventId, string range)
+    public async Task<object> GetChartAsync(int? eventId, DateTime? from, DateTime? to)
     {
-        var from  = GetFromDate(range);
-        var query = _db.VisitLogs
-            .Where(v => v.Booth.EventId == eventId && v.VisitedAt >= from);
-
-        var total     = await query.CountAsync();
-        var avgSecs   = total == 0 ? 0 : await query.AverageAsync(v => (double)v.Duration);
-        var languages = await query.Select(v => v.LanguageCode).Distinct().CountAsync();
-
-        return new { total, avgDurationSec = Math.Round(avgSecs), languages };
-    }
-
-    public async Task<object> GetChartAsync(int eventId, string range)
-    {
-        int days = range == "month" ? 30 : 7;
-        var from = DateTime.UtcNow.Date.AddDays(-days + 1);
-
-        var logs = await _db.VisitLogs
-            .Where(v => v.Booth.EventId == eventId && v.VisitedAt.Date >= from)
+        var query = _db.VisitLogs.Include(v => v.Booth).AsQueryable();
+        if (eventId.HasValue) query = query.Where(v => v.Booth.EventId == eventId);
+        if (from.HasValue)    query = query.Where(v => v.VisitedAt >= from);
+        if (to.HasValue)      query = query.Where(v => v.VisitedAt <= to);
+        var data = await query
             .GroupBy(v => v.VisitedAt.Date)
             .Select(g => new { date = g.Key, count = g.Count() })
+            .OrderBy(x => x.date)
             .ToListAsync();
-
-        var labels = Enumerable.Range(0, days)
-            .Select(i => from.AddDays(i).ToString("dd/MM")).ToList();
-        var values = Enumerable.Range(0, days)
-            .Select(i => logs.FirstOrDefault(l => l.date == from.AddDays(i))?.count ?? 0)
-            .ToList();
-
-        return new { labels, values };
-    }
-
-    public async Task<object> GetByLanguageAsync(int eventId)
-    {
-        var total = await _db.VisitLogs.CountAsync(v => v.Booth.EventId == eventId);
-        var data  = await _db.VisitLogs
-            .Where(v => v.Booth.EventId == eventId)
-            .GroupBy(v => v.LanguageCode)
-            .Select(g => new {
-                languageCode = g.Key,
-                count        = g.Count(),
-                pct          = total == 0 ? 0 : Math.Round(g.Count() * 100.0 / total, 1),
-            })
-            .OrderByDescending(x => x.count)
-            .ToListAsync();
-
         return data;
     }
 
-    public async Task<object> GetByDeviceAsync(int eventId)
+    public async Task<object> GetByLanguageAsync(int? eventId)
     {
-        var total = await _db.VisitLogs.CountAsync(v => v.Booth.EventId == eventId);
-        var data  = await _db.VisitLogs
-            .Where(v => v.Booth.EventId == eventId)
-            .GroupBy(v => v.DeviceType)
-            .Select(g => new {
-                deviceType = g.Key,
-                count      = g.Count(),
-                pct        = total == 0 ? 0 : Math.Round(g.Count() * 100.0 / total, 1),
-            })
-            .OrderByDescending(x => x.count)
-            .ToListAsync();
-
-        return data;
+        var query = _db.VisitLogs.Include(v => v.Booth).AsQueryable();
+        if (eventId.HasValue) query = query.Where(v => v.Booth.EventId == eventId);
+        var total = await query.CountAsync();
+        return await query.GroupBy(v => v.LanguageCode)
+            .Select(g => new { languageCode = g.Key, count = g.Count(), pct = total == 0 ? 0 : Math.Round(g.Count() * 100.0 / total, 1) })
+            .OrderByDescending(x => x.count).ToListAsync();
     }
 
-    public async Task<object> GetByBoothAsync(int eventId)
+    public async Task<object> GetByDeviceAsync(int? eventId)
     {
-        var data = await _db.VisitLogs
-            .Where(v => v.Booth.EventId == eventId)
-            .GroupBy(v => new { v.BoothId, v.Booth.Name })
-            .Select(g => new {
-                id     = g.Key.BoothId,
-                name   = g.Key.Name,
-                visits = g.Count(),
-                avgDur = Math.Round(g.Average(v => (double)v.Duration), 1),
-            })
-            .OrderByDescending(x => x.visits)
-            .ToListAsync();
-
-        return data;
+        var query = _db.VisitLogs.Include(v => v.Booth).AsQueryable();
+        if (eventId.HasValue) query = query.Where(v => v.Booth.EventId == eventId);
+        var total = await query.CountAsync();
+        return await query.GroupBy(v => v.DeviceType)
+            .Select(g => new { deviceType = g.Key, count = g.Count(), pct = total == 0 ? 0 : Math.Round(g.Count() * 100.0 / total, 1) })
+            .OrderByDescending(x => x.count).ToListAsync();
     }
 
-    private static DateTime GetFromDate(string range) => range switch
+    public async Task<object> GetByBoothAsync(int? eventId)
     {
-        "month" => DateTime.UtcNow.Date.AddDays(-30),
-        _       => DateTime.UtcNow.Date.AddDays(-7),
-    };
+        var query = _db.VisitLogs.Include(v => v.Booth).AsQueryable();
+        if (eventId.HasValue) query = query.Where(v => v.Booth.EventId == eventId);
+        return await query.GroupBy(v => new { v.BoothId, v.Booth.BoothName })
+            .Select(g => new { id = g.Key.BoothId, name = g.Key.BoothName, visits = g.Count(), avgDur = Math.Round(g.Average(v => (double)v.Duration), 1) })
+            .OrderByDescending(x => x.visits).ToListAsync();
+    }
 }

@@ -1,124 +1,128 @@
-// VendorService.cs
-using Microsoft.EntityFrameworkCore;
-using backend.Data;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using backend.Models;
 using backend.Repositories;
 
-namespace backend.Services;
-
-public class VendorService
+namespace backend.Services
 {
-    private readonly VendorRepository   _vendorRepo;
-    private readonly VisitLogRepository _visitLogRepo;
-    private readonly AppDbContext       _db;
-
-    public VendorService(VendorRepository vendorRepo, VisitLogRepository visitLogRepo, AppDbContext db)
+    public class VendorService
     {
-        _vendorRepo   = vendorRepo;
-        _visitLogRepo = visitLogRepo;
-        _db           = db;
-    }
+        private readonly IVendorRepository    _vendorRepo;
+        private readonly IBoothRepository     _boothRepo;
+        private readonly IVisitLogRepository  _visitLogRepo;
 
-    public async Task<object> GetMeAsync(int accountId)
-    {
-        var vendor = await _vendorRepo.GetByAccountIdAsync(accountId)
-            ?? throw new KeyNotFoundException("Không tìm thấy thông tin vendor.");
-
-        return new
+        public VendorService(
+            IVendorRepository vendorRepo,
+            IBoothRepository boothRepo,
+            IVisitLogRepository visitLogRepo)
         {
-            vendor.Id,
-            vendor.AccountId,
-            vendor.CompanyName,
-            vendor.RepresentativeName,
-            vendor.PhoneNumber,
-        };
-    }
-
-    public async Task<object> GetMyBoothsAsync(int accountId)
-    {
-        var vendor = await _vendorRepo.GetByAccountIdAsync(accountId)
-            ?? throw new KeyNotFoundException("Không tìm thấy thông tin vendor.");
-
-        var result = new List<object>();
-        foreach (var b in vendor.Booths)
-        {
-            var listensToday = await _visitLogRepo.CountTodayByBoothAsync(b.Id);
-            result.Add(new
-            {
-                b.Id,
-                b.Name,
-                b.IsActive,
-                eventName = b.Event?.Name,
-                listensToday,
-            });
+            _vendorRepo   = vendorRepo;
+            _boothRepo    = boothRepo;
+            _visitLogRepo = visitLogRepo;
         }
 
-        return result;
-    }
-
-    public async Task<object> GetStatsTodayAsync(int accountId)
-    {
-        var vendor = await _vendorRepo.GetByAccountIdAsync(accountId)
-            ?? throw new KeyNotFoundException("Không tìm thấy thông tin vendor.");
-
-        var totalBooths  = vendor.Booths.Count;
-        var listensToday = 0;
-
-        foreach (var b in vendor.Booths)
-            listensToday += await _visitLogRepo.CountTodayByBoothAsync(b.Id);
-
-        return new { totalBooths, listensToday, totalLanguages = 5 };
-    }
-
-    public async Task<object> GetBoothStatsAsync(int boothId, string range)
-    {
-        var from = range switch
+        // GET /api/vendor/me
+        public async Task<object> GetMeAsync(int accountId)
         {
-            "30days" => DateTime.UtcNow.Date.AddDays(-30),
-            "month"  => new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1),
-            _        => DateTime.UtcNow.Date.AddDays(-7),
-        };
+            var vendor = await _vendorRepo.GetByAccountId(accountId)
+                ?? throw new KeyNotFoundException("Không tìm thấy thông tin vendor.");
 
-        var logs = await _db.VisitLogs
-            .Where(v => v.BoothId == boothId && v.VisitedAt >= from)
-            .ToListAsync();
-
-        var total    = logs.Count;
-        var avgSecs  = total == 0 ? 0 : (int)logs.Average(v => (double)v.Duration);
-        var topLang  = logs
-            .GroupBy(v => v.LanguageCode)
-            .OrderByDescending(g => g.Count())
-            .Select(g => g.Key)
-            .FirstOrDefault() ?? "—";
-
-        // Thống kê theo giờ
-        var hourlyData = Enumerable.Range(0, 24)
-            .Select(h => new
+            return new
             {
-                hour  = $"{h:D2}h",
-                views = logs.Count(v => v.VisitedAt.Hour == h),
-            })
-            .Where(x => x.views > 0)
-            .ToList();
+                vendor.Id,
+                vendor.AccountId,
+                vendor.CompanyName,
+                vendor.RepresentativeName,
+                vendor.PhoneNumber,
+                vendor.Description,
+                vendor.IsPaid,
+            };
+        }
 
-        // Thống kê theo ngôn ngữ
-        var langData = logs
-            .GroupBy(v => v.LanguageCode)
-            .Select(g => new
-            {
-                languageCode = g.Key,
-                count        = g.Count(),
-                pct          = total == 0 ? 0 : Math.Round(g.Count() * 100.0 / total, 1),
-            })
-            .OrderByDescending(x => x.count)
-            .ToList();
-
-        return new
+        // GET /api/vendor/booths
+        public async Task<object> GetMyBoothsAsync(int accountId)
         {
-            total,
-            avgDurationSec = avgSecs,
-            topLanguage    = topLang,
-            hourlyData,
-            langData,
-        };
+            var vendor = await _vendorRepo.GetByAccountId(accountId)
+                ?? throw new KeyNotFoundException("Không tìm thấy thông tin vendor.");
+
+            var booths = await _boothRepo.GetAll();
+            var myBooths = booths
+                .Where(b => b.VendorId == vendor.Id)
+                .Select(b => new
+                {
+                    b.Id,
+                    b.BoothName,
+                    b.Description,
+                    b.IsActive,
+                    b.CategoryId,
+                    b.CreatedAt,
+                })
+                .ToList();
+
+            return myBooths;
+        }
+
+        // GET /api/vendor/stats/today
+        public async Task<object> GetStatsTodayAsync(int accountId)
+        {
+            var vendor = await _vendorRepo.GetByAccountId(accountId)
+                ?? throw new KeyNotFoundException("Không tìm thấy thông tin vendor.");
+
+            var booths = (await _boothRepo.GetAll())
+                .Where(b => b.VendorId == vendor.Id)
+                .ToList();
+
+            var today = DateTime.UtcNow.Date;
+            int totalListens = 0;
+
+            foreach (var booth in booths)
+            {
+                var logs = await _visitLogRepo.GetByBoothId(booth.Id);
+                totalListens += logs.Count(l => l.VisitedAt.Date == today);
+            }
+
+            return new
+            {
+                activeBooths  = booths.Count(b => b.IsActive),
+                listensToday  = totalListens,
+            };
+        }
+
+        // GET /api/vendor/stats/:boothId
+        public async Task<object> GetBoothStatsAsync(int boothId, string range)
+        {
+            int days = range == "30days" ? 30 : 7;
+            var from = DateTime.UtcNow.Date.AddDays(-days + 1);
+
+            var logs = (await _visitLogRepo.GetByBoothId(boothId))
+                .Where(l => l.VisitedAt.Date >= from)
+                .ToList();
+
+            var byDay = Enumerable.Range(0, days)
+                .Select(i =>
+                {
+                    var date = from.AddDays(i);
+                    return new
+                    {
+                        date  = date.ToString("dd/MM"),
+                        count = logs.Count(l => l.VisitedAt.Date == date),
+                    };
+                }).ToList();
+
+            var byLanguage = logs
+                .GroupBy(l => l.LanguageCode)
+                .Select(g => new { language = g.Key, count = g.Count() })
+                .ToList();
+
+            return new
+            {
+                totalListens   = logs.Count,
+                avgDuration    = logs.Any() ? logs.Average(l => l.Duration) : 0,
+                chart          = byDay,
+                languages      = byLanguage,
+            };
+        }
     }
 }

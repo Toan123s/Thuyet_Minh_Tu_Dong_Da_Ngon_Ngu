@@ -1,78 +1,122 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using backend.Models;
 using backend.Repositories;
+using backend.DTOs.Translation;
 
-namespace backend.Services;
-
-public class TranslationService
+namespace backend.Services
 {
-    private readonly TranslationRepository _repo;
-    private readonly NarrationRepository   _narrationRepo;
-
-    public TranslationService(TranslationRepository repo, NarrationRepository narrationRepo)
+    public class TranslationService
     {
-        _repo          = repo;
-        _narrationRepo = narrationRepo;
-    }
+        private readonly ITranslationRepository _translationRepo;
 
-    public async Task<object> GetOneAsync(int narrationId, string lang)
-    {
-        var t = await _repo.GetByNarrationAndLangAsync(narrationId, lang)
-            ?? throw new KeyNotFoundException($"Không tìm thấy bản dịch ngôn ngữ '{lang}'.");
-        return MapToResponse(t);
-    }
-
-    public async Task<object> UpdateManualAsync(int translationId, TranslationUpdateRequest request)
-    {
-        var t = await _repo.GetByIdAsync(translationId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy bản dịch ID = {translationId}.");
-
-        t.TranslatedContent = request.TranslatedContent;
-        t.IsAutoTranslated  = false;
-        await _repo.UpdateAsync(t);
-        return MapToResponse(t);
-    }
-
-    /// <summary>
-    /// Tạo bản dịch (hiện tại mock — tích hợp Azure OpenAI sau)
-    /// </summary>
-    public async Task<object> GenerateOneAsync(int narrationId, string languageCode)
-    {
-        var narration = await _narrationRepo.GetByIdAsync(narrationId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy narration ID = {narrationId}.");
-
-        var existing = await _repo.GetByNarrationAndLangAsync(narrationId, languageCode);
-        if (existing != null) return MapToResponse(existing);
-
-        // TODO: Gọi Azure OpenAI để dịch thật
-        var translation = new Translation
+        public TranslationService(ITranslationRepository translationRepo)
         {
-            NarrationId       = narrationId,
-            LanguageCode      = languageCode,
-            TranslatedContent = $"[{languageCode.ToUpper()}] {narration.Content}",
-            IsAutoTranslated  = true,
-            CreatedAt         = DateTime.UtcNow,
-        };
-        var created = await _repo.CreateAsync(translation);
-        return MapToResponse(created);
+            _translationRepo = translationRepo;
+        }
+
+        public async Task<TranslationResponse> GetOneAsync(int narrationId, string languageCode)
+        {
+            var translation = await _translationRepo.GetByNarrationIdAndLang(narrationId, languageCode);
+            if (translation == null)
+                throw new KeyNotFoundException($"Không tìm thấy bản dịch cho ngôn ngữ {languageCode}");
+
+            return new TranslationResponse
+            {
+                Id = translation.Id,
+                NarrationId = translation.NarrationId,
+                LanguageCode = translation.LanguageCode,
+                Title = translation.Title,
+                Content = translation.Content,
+                IsEdited = translation.IsEdited,
+                CreatedAt = translation.CreatedAt,
+                UpdatedAt = translation.UpdatedAt
+            };
+        }
+
+        public async Task<TranslationResponse> UpdateManualAsync(int translationId, TranslationUpdateRequest request)
+        {
+            var existing = await _translationRepo.GetById(translationId);
+            if (existing == null)
+                throw new KeyNotFoundException($"Không tìm thấy bản dịch với ID {translationId}");
+
+            existing.Title = request.Title;
+            existing.Content = request.Content;
+            existing.IsEdited = request.IsEdited;
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            var result = await _translationRepo.Update(existing);
+
+            return new TranslationResponse
+            {
+                Id = result.Id,
+                NarrationId = result.NarrationId,
+                LanguageCode = result.LanguageCode,
+                Title = result.Title,
+                Content = result.Content,
+                IsEdited = result.IsEdited,
+                CreatedAt = result.CreatedAt,
+                UpdatedAt = result.UpdatedAt
+            };
+        }
+
+        public async Task<TranslationResponse> GenerateOneAsync(int narrationId, string languageCode)
+        {
+            var existing = await _translationRepo.GetByNarrationIdAndLang(narrationId, languageCode);
+            if (existing != null)
+            {
+                return new TranslationResponse
+                {
+                    Id = existing.Id,
+                    NarrationId = existing.NarrationId,
+                    LanguageCode = existing.LanguageCode,
+                    Title = existing.Title,
+                    Content = existing.Content,
+                    IsEdited = existing.IsEdited,
+                    CreatedAt = existing.CreatedAt,
+                    UpdatedAt = existing.UpdatedAt
+                };
+            }
+
+            // TODO: Gọi Azure OpenAI để dịch
+            var translation = new Translation
+            {
+                NarrationId = narrationId,
+                LanguageCode = languageCode,
+                Title = $"Dịch sang {languageCode}",
+                Content = $"Nội dung dịch sang {languageCode}",
+                IsEdited = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var result = await _translationRepo.Create(translation);
+
+            return new TranslationResponse
+            {
+                Id = result.Id,
+                NarrationId = result.NarrationId,
+                LanguageCode = result.LanguageCode,
+                Title = result.Title,
+                Content = result.Content,
+                IsEdited = result.IsEdited,
+                CreatedAt = result.CreatedAt,
+                UpdatedAt = result.UpdatedAt
+            };
+        }
+
+        public async Task<List<TranslationResponse>> GenerateAllAsync(int narrationId, List<string> languages)
+        {
+            var results = new List<TranslationResponse>();
+
+            foreach (var lang in languages)
+            {
+                var result = await GenerateOneAsync(narrationId, lang);
+                results.Add(result);
+            }
+
+            return results;
+        }
     }
-
-    public async Task<List<object>> GenerateAllAsync(int narrationId, List<string> languages)
-    {
-        var results = new List<object>();
-        foreach (var lang in languages)
-            results.Add(await GenerateOneAsync(narrationId, lang));
-        return results;
-    }
-
-    private static object MapToResponse(Translation t) => new
-    {
-        t.Id, t.NarrationId, t.LanguageCode,
-        t.TranslatedContent, t.AudioUrl,
-        t.IsAutoTranslated, t.CreatedAt,
-    };
-}
-
-public class TranslationUpdateRequest
-{
-    public string TranslatedContent { get; set; } = string.Empty;
 }

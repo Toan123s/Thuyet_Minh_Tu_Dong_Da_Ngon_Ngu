@@ -1,3 +1,4 @@
+// VisitLogService.cs — paste đè toàn bộ (CreateAsync → Create)
 using backend.Models;
 using backend.Repositories;
 
@@ -13,30 +14,20 @@ public class VisitLogService
         var log = new VisitLog
         {
             BoothId      = request.BoothId,
-            LanguageCode = request.LanguageCode,
-            DeviceType   = request.DeviceType,
+            LanguageCode = request.LanguageCode ?? "vi",
+            DeviceType   = request.DeviceType   ?? "Mobile",
             Duration     = request.DurationSec,
             VisitedAt    = DateTime.UtcNow,
         };
-        var created = await _repo.CreateAsync(log);
+        var created = await _repo.Create(log);
         return new { created.Id, created.BoothId, created.VisitedAt };
-    }
-
-    public async Task<object> GetByBoothAsync(int boothId, DateTime? from)
-    {
-        var logs = await _repo.GetByBoothIdAsync(boothId, from);
-        return logs.Select(v => new
-        {
-            v.Id, v.BoothId, v.LanguageCode,
-            v.DeviceType, v.Duration, v.VisitedAt,
-        });
     }
 }
 
 public class VisitLogRequest
 {
-    public int    BoothId      { get; set; }
-    public string LanguageCode { get; set; } = "vi";
-    public string DeviceType   { get; set; } = "Mobile";
-    public int    DurationSec  { get; set; } = 0;
+    public int     BoothId      { get; set; }
+    public string? LanguageCode { get; set; }
+    public string? DeviceType   { get; set; }
+    public int     DurationSec  { get; set; }
 }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using backend.Services;
+using backend.DTOs.Narration;
 
 namespace backend.Controllers;
 

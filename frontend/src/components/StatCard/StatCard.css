@@ -1,0 +1,45 @@
+/* StatCard.css */
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 1.75rem;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #DDE3EC;
+  box-shadow: 0 2px 10px rgba(30, 58, 95, 0.07);
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+.stat-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0.75rem;
+  flex-shrink: 0;
+}
+.stat-card__icon svg { width: 1.5rem; height: 1.5rem; }
+
+.stat-card--blue   .stat-card__icon { background: #EFF6FF; color: #2E75B6; }
+.stat-card--green  .stat-card__icon { background: #DCFCE7; color: #16A34A; }
+.stat-card--orange .stat-card__icon { background: #FFF7ED; color: #EA580C; }
+.stat-card--purple .stat-card__icon { background: #F3E8FF; color: #9333EA; }
+
+.stat-card__body { display: flex; flex-direction: column; gap: 0.15rem; }
+
+.stat-card__value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1E293B;
+  line-height: 1.1;
+}
+
+.stat-card__label { font-size: 0.95rem; font-weight: 500; color: #64748B; }
+.stat-card__sub { font-size: 0.85rem; color: #94A3B8; margin-top: 0.15rem; }
+
+@media (max-width: 480px) {
+  .stat-card { padding: 1.25rem 1.5rem; }
+  .stat-card__value { font-size: 1.5rem; }
+}

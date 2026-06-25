@@ -69,7 +69,9 @@ public class AccountController : ControllerBase
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
-    [HttpPost("{id}/reset-password")]
+
+    // ✅ FIX: Đổi từ [HttpPost] → [HttpPatch] để khớp với frontend gọi PATCH
+    [HttpPatch("{id}/reset-password")]
     public async Task<IActionResult> ResetPassword(int id)
     {
         try

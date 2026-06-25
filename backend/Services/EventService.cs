@@ -1,95 +1,94 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using backend.Models;
 using backend.Repositories;
+using backend.DTOs.Event;
 
-namespace backend.Services;
-
-public class EventService
+namespace backend.Services
 {
-    private readonly EventRepository _repo;
-    public EventService(EventRepository repo) { _repo = repo; }
-
-    public async Task<object> GetAllAsync(int page, int pageSize, string? search, string? status)
+    public interface IEventService
     {
-        var (data, total) = await _repo.GetAllAsync(page, pageSize, search, status);
-        return new
+        Task<IEnumerable<EventResponseDto>> GetAll(string? status = null);
+        Task<EventResponseDto> GetById(int id);
+        Task<Event> Create(Event eventItem);
+        Task<Event> Update(Event eventItem);
+        Task<bool> Delete(int id);
+    }
+
+    public class EventService : IEventService
+    {
+        private readonly IEventRepository _eventRepo;
+
+        public EventService(IEventRepository eventRepo)
         {
-            items = data.Select(MapToResponse),
-            total,
-            page,
-            totalPages = (int)Math.Ceiling(total / (double)pageSize),
-        };
-    }
+            _eventRepo = eventRepo;
+        }
 
-    public async Task<object> GetByIdAsync(int id)
-    {
-        var ev = await _repo.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy sự kiện ID = {id}.");
-        return MapToResponse(ev);
-    }
-
-    public async Task<object> CreateAsync(EventRequest request)
-    {
-        var ev = new Event
+        public async Task<IEnumerable<EventResponseDto>> GetAll(string? status = null)
         {
-            Name        = request.Name,
-            Description = request.Description,
-            Location    = request.Location,
-            StartDate   = request.StartDate,
-            EndDate     = request.EndDate,
-            Status      = request.Status ?? "Active",
-        };
-        var created = await _repo.CreateAsync(ev);
-        return MapToResponse(created);
+            var events = await _eventRepo.GetAll(status);
+            return events.Select(e => new EventResponseDto
+            {
+                Id = e.Id,
+                Name = e.Name ?? "",
+                Description = e.Description ?? "",
+                Location = e.Location ?? "",
+                StartDate = e.StartDate,
+                EndDate = e.EndDate,
+                LogoUrl = e.LogoUrl ?? "",
+                QRCodeUrl = e.QRCodeUrl ?? "",
+                Status = GetEventStatus(e.StartDate, e.EndDate),
+                CreatedAt = e.CreatedAt,
+                TotalBooths = e.Booths?.Count ?? 0
+            });
+        }
+
+        public async Task<EventResponseDto> GetById(int id)
+        {
+            var eventItem = await _eventRepo.GetById(id);
+            if (eventItem == null) return null;
+
+            return new EventResponseDto
+            {
+                Id = eventItem.Id,
+                Name = eventItem.Name ?? "",
+                Description = eventItem.Description ?? "",
+                Location = eventItem.Location ?? "",
+                StartDate = eventItem.StartDate,
+                EndDate = eventItem.EndDate,
+                LogoUrl = eventItem.LogoUrl ?? "",
+                QRCodeUrl = eventItem.QRCodeUrl ?? "",
+                Status = GetEventStatus(eventItem.StartDate, eventItem.EndDate),
+                CreatedAt = eventItem.CreatedAt,
+                TotalBooths = eventItem.Booths?.Count ?? 0
+            };
+        }
+
+        public async Task<Event> Create(Event eventItem)
+        {
+            eventItem.CreatedAt = DateTime.UtcNow;
+            return await _eventRepo.Create(eventItem);
+        }
+
+        public async Task<Event> Update(Event eventItem)
+        {
+            return await _eventRepo.Update(eventItem);
+        }
+
+        public async Task<bool> Delete(int id)
+        {
+            return await _eventRepo.Delete(id);
+        }
+
+        // 🔥 HÀM TÍNH TRẠNG THÁI
+        private string GetEventStatus(DateTime startDate, DateTime endDate)
+        {
+            var now = DateTime.UtcNow;
+            if (now < startDate) return "Sắp tới";
+            if (now >= startDate && now <= endDate) return "Đang mở";
+            return "Đã kết thúc";
+        }
     }
-
-    public async Task<object> UpdateAsync(int id, EventRequest request)
-    {
-        var ev = await _repo.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy sự kiện ID = {id}.");
-
-        ev.Name        = request.Name;
-        ev.Description = request.Description;
-        ev.Location    = request.Location;
-        ev.StartDate   = request.StartDate;
-        ev.EndDate     = request.EndDate;
-        ev.Status      = request.Status ?? ev.Status;
-
-        await _repo.UpdateAsync(ev);
-        return MapToResponse(ev);
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        var ev = await _repo.GetByIdAsync(id)
-            ?? throw new KeyNotFoundException($"Không tìm thấy sự kiện ID = {id}.");
-        await _repo.DeleteAsync(ev);
-    }
-
-    public async Task<object> GetBoothsByEventAsync(int eventId)
-    {
-        var ev = await _repo.GetByIdAsync(eventId)
-            ?? throw new KeyNotFoundException($"Không tìm thấy sự kiện ID = {eventId}.");
-
-        return ev.Booths?.Select(b => new {
-            b.Id, b.Name, b.Description,
-            b.Latitude, b.Longitude, b.IsActive
-        }) ?? Enumerable.Empty<object>();
-    }
-
-    private static object MapToResponse(Event e) => new
-    {
-        e.Id, e.Name, e.Description,
-        e.Location, e.StartDate, e.EndDate, e.Status,
-        boothCount = e.Booths?.Count ?? 0,
-    };
-}
-
-public class EventRequest
-{
-    public string   Name        { get; set; } = string.Empty;
-    public string?  Description { get; set; }
-    public string?  Location    { get; set; }
-    public DateTime StartDate   { get; set; }
-    public DateTime EndDate     { get; set; }
-    public string?  Status      { get; set; }
-}
+}  

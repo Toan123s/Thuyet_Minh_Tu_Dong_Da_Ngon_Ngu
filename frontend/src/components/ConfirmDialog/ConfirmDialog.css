@@ -1,0 +1,96 @@
+/* ConfirmDialog.css */
+.cd-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.25rem;
+  animation: cd-fade-in 0.18s ease;
+}
+
+@keyframes cd-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.cd-modal {
+  background: #ffffff;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 28rem;
+  box-shadow: 0 8px 30px rgba(30, 58, 95, 0.14);
+  animation: cd-slide-up 0.2s ease;
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+@keyframes cd-slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.cd-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 2rem 1.75rem 0.875rem;
+}
+
+.cd-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+}
+.cd-icon svg { width: 1.75rem; height: 1.75rem; }
+
+.cd-icon--warning { background: #FFF7ED; color: #F59E0B; }
+.cd-icon--danger  { background: #FEE2E2; color: #EF4444; }
+
+.cd-text { text-align: center; }
+
+.cd-text h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1E293B;
+  margin: 0 0 0.5rem;
+}
+
+.cd-text p {
+  font-size: 1rem;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.cd-footer {
+  display: flex;
+  justify-content: center;
+  gap: 0.875rem;
+  padding: 1.25rem 1.75rem 1.75rem;
+}
+
+.cd-btn {
+  padding: 0.7rem 1.75rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+  font-family: inherit;
+}
+
+.cd-btn--ghost   { background: transparent; color: #64748B; border: 1px solid #DDE3EC; }
+.cd-btn--ghost:hover { background: #F0F4F8; color: #1E293B; }
+
+.cd-btn--warning { background: #F59E0B; color: #fff; }
+.cd-btn--warning:hover { background: #D97706; }
+
+.cd-btn--danger  { background: #EF4444; color: #fff; }
+.cd-btn--danger:hover  { background: #DC2626; }

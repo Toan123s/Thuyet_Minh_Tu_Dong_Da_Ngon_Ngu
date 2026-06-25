@@ -1,53 +1,80 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using backend.Data;
 using backend.Models;
+using backend.Data;
 
-namespace backend.Repositories;
-
-public class EventRepository
+namespace backend.Repositories
 {
-    private readonly AppDbContext _db;
-    public EventRepository(AppDbContext db) { _db = db; }
-
-    public async Task<(List<Event> Data, int Total)> GetAllAsync(
-        int page, int pageSize, string? search, string? status)
+    public interface IEventRepository
     {
-        var query = _db.Events.Include(e => e.Booths).AsQueryable();
-
-        if (!string.IsNullOrEmpty(search))
-            query = query.Where(e => e.Name.Contains(search) || (e.Description != null && e.Description.Contains(search)));
-        if (!string.IsNullOrEmpty(status))
-            query = query.Where(e => e.Status == status);
-
-        var total = await query.CountAsync();
-        var data  = await query
-            .OrderByDescending(e => e.StartDate)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        return (data, total);
+        Task<IEnumerable<Event>> GetAll(string? status = null);
+        Task<Event> GetById(int id);
+        Task<Event> Create(Event eventItem);
+        Task<Event> Update(Event eventItem);
+        Task<bool> Delete(int id);
     }
 
-    public async Task<Event?> GetByIdAsync(int id)
-        => await _db.Events.Include(e => e.Booths).FirstOrDefaultAsync(e => e.Id == id);
-
-    public async Task<Event> CreateAsync(Event ev)
+    public class EventRepository : IEventRepository
     {
-        _db.Events.Add(ev);
-        await _db.SaveChangesAsync();
-        return ev;
-    }
+        private readonly AppDbContext _db;
 
-    public async Task UpdateAsync(Event ev)
-    {
-        _db.Events.Update(ev);
-        await _db.SaveChangesAsync();
-    }
+        public EventRepository(AppDbContext db)
+        {
+            _db = db;
+        }
 
-    public async Task DeleteAsync(Event ev)
-    {
-        _db.Events.Remove(ev);
-        await _db.SaveChangesAsync();
+        public async Task<IEnumerable<Event>> GetAll(string? status = null)
+        {
+            var query = _db.Events.Include(e => e.Booths).AsQueryable();
+
+            // 🔥 SỬA: tính toán status thay vì dùng property Status
+            if (!string.IsNullOrEmpty(status))
+            {
+                var now = DateTime.UtcNow;
+                query = status switch
+                {
+                    "Sắp tới" => query.Where(e => e.StartDate > now),
+                    "Đang mở" => query.Where(e => e.StartDate <= now && e.EndDate >= now),
+                    "Đã kết thúc" => query.Where(e => e.EndDate < now),
+                    _ => query
+                };
+            }
+
+            return await query.OrderByDescending(e => e.CreatedAt).ToListAsync();
+        }
+
+        public async Task<Event> GetById(int id)
+        {
+            return await _db.Events
+                .Include(e => e.Booths)
+                .FirstOrDefaultAsync(e => e.Id == id);
+        }
+
+        public async Task<Event> Create(Event eventItem)
+        {
+            _db.Events.Add(eventItem);
+            await _db.SaveChangesAsync();
+            return eventItem;
+        }
+
+        public async Task<Event> Update(Event eventItem)
+        {
+            _db.Events.Update(eventItem);
+            await _db.SaveChangesAsync();
+            return eventItem;
+        }
+
+        public async Task<bool> Delete(int id)
+        {
+            var eventItem = await _db.Events.FindAsync(id);
+            if (eventItem == null) return false;
+
+            _db.Events.Remove(eventItem);
+            await _db.SaveChangesAsync();
+            return true;
+        }
     }
 }
