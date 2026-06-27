@@ -1,21 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import "./GoogleMap.css";
 
-/**
- * Props:
- *  -- CHẾ ĐỘ PICKER (BoothManagementPage) --
- *  - pickerMode    : boolean           — bật chế độ click chọn tọa độ
- *  - onMapClick    : ({ lat, lng }) => void
- *  - initialCenter : { lat, lng }      — vị trí ban đầu (default: HCM)
- *  - selectedPoint : { lat, lng } | null — hiện marker đã chọn
- *
- *  -- CHẾ ĐỘ HIỂN THỊ BOOTHS (MapPage) --
- *  - booths        : [{ id, name, latitude, longitude }]
- *  - userPosition  : { lat, lng } | null
- *  - onMarkerClick : (boothId) => void
- *
- * Cả hai chế độ đều đọc VITE_GOOGLE_MAPS_KEY từ import.meta.env
- */
 export default function GoogleMap({
   pickerMode = false,
   onMapClick,
@@ -25,170 +10,152 @@ export default function GoogleMap({
   userPosition = null,
   onMarkerClick,
 }) {
-  // 🔥 SỬA: tính center mặc định ở ĐÂY (sau khi `booths` đã có giá trị),
-  // thay vì để trong default param phía trên — trước đây code tham chiếu
-  // `booths` ngay trong default value của `initialCenter`, nhưng `booths`
-  // lại được khai báo SAU `initialCenter` trong cùng danh sách destructuring
-  // → JS ném "ReferenceError: Cannot access 'booths' before initialization"
-  // ngay khi component được gọi mà không truyền initialCenter (đúng như
-  // cách MapPage.jsx đang dùng) → cả bản đồ bị crash trắng.
-  const initialCenterResolved = initialCenter
+  const containerRef    = useRef(null);
+  const mapRef          = useRef(null);
+  const markersRef      = useRef([]);
+  const userMarkerRef   = useRef(null);
+  const pickerMarkerRef = useRef(null);
+  const initializedRef  = useRef(false); // chặn double-init StrictMode
+
+  const defaultCenter = initialCenter
     ?? (booths.length
       ? { lat: parseFloat(booths[0].latitude), lng: parseFloat(booths[0].longitude) }
-      : { lat: 15.8801, lng: 108.338 }); // fallback: trung tâm Phố cổ Hội An
+      : { lat: 15.8801, lng: 108.338 });
 
-  const containerRef = useRef(null);
-  const mapRef       = useRef(null);
-  const markersRef   = useRef([]);
-  const pickerMarkerRef = useRef(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
-
-  // ── Load Google Maps SDK once ──────────────────────────────
+  // Load Leaflet CSS
   useEffect(() => {
-    if (window.google?.maps) { setLoading(false); return; }
-
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY;
-    if (!apiKey) {
-      setError("Thiếu VITE_GOOGLE_MAPS_KEY trong .env");
-      setLoading(false);
-      return;
+    if (!document.getElementById("leaflet-css")) {
+      const link  = document.createElement("link");
+      link.id     = "leaflet-css";
+      link.rel    = "stylesheet";
+      link.href   = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
     }
-
-    const existing = document.getElementById("gmap-script");
-    if (existing) {
-      existing.addEventListener("load", () => setLoading(false));
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.id  = "gmap-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    script.async = true;
-    script.onload = () => setLoading(false);
-    script.onerror = () => {
-      setError("Không tải được Google Maps");
-      setLoading(false);
-    };
-    document.head.appendChild(script);
   }, []);
 
-  // ── Init map after SDK loaded ──────────────────────────────
+  // Init map — chỉ chạy 1 lần duy nhất
   useEffect(() => {
-    if (loading || error || !containerRef.current) return;
-    if (mapRef.current) return; // already init
+    if (initializedRef.current) return;
+    if (!containerRef.current)  return;
 
-    mapRef.current = new window.google.maps.Map(containerRef.current, {
-      center: initialCenterResolved,
-      zoom: pickerMode ? 16 : 15,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
+    initializedRef.current = true;
+
+    import("leaflet").then((L) => {
+      // Nếu container đã bị init (StrictMode unmount/remount) thì xóa trước
+      if (containerRef.current._leaflet_id) {
+        containerRef.current._leaflet_id = null;
+      }
+
+      const map = L.map(containerRef.current, {
+        center: [defaultCenter.lat, defaultCenter.lng],
+        zoom: 16,
+        zoomControl: true,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '© <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map);
+
+      mapRef.current = map;
+
+      if (pickerMode) {
+        map.on("click", (e) => {
+          const { lat, lng } = e.latlng;
+          onMapClick?.({ lat, lng });
+          if (pickerMarkerRef.current) {
+            pickerMarkerRef.current.setLatLng([lat, lng]);
+          } else {
+            pickerMarkerRef.current = L.marker([lat, lng], { icon: makeIcon(L, "#2563eb") })
+              .addTo(map);
+          }
+        });
+      }
     });
 
-    if (pickerMode) {
-      mapRef.current.addListener("click", (e) => {
-        const lat = e.latLng.lat();
-        const lng = e.latLng.lng();
-        onMapClick?.({ lat, lng });
-
-        // Move or create picker marker
-        if (pickerMarkerRef.current) {
-          pickerMarkerRef.current.setPosition({ lat, lng });
-        } else {
-          pickerMarkerRef.current = new window.google.maps.Marker({
-            position: { lat, lng },
-            map: mapRef.current,
-            title: "Vị trí đã chọn",
-            animation: window.google.maps.Animation.DROP,
-          });
-        }
-      });
-    }
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        initializedRef.current = false;
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error]);
+  }, []);
 
-  // ── Sync selectedPoint (picker mode) ──────────────────────
+  // Sync selectedPoint (picker)
   useEffect(() => {
-    if (!mapRef.current || !pickerMode) return;
-    if (!selectedPoint) return;
-
-    if (pickerMarkerRef.current) {
-      pickerMarkerRef.current.setPosition(selectedPoint);
-    } else {
-      pickerMarkerRef.current = new window.google.maps.Marker({
-        position: selectedPoint,
-        map: mapRef.current,
-        title: "Vị trí đã chọn",
-      });
-    }
-    mapRef.current.panTo(selectedPoint);
+    if (!mapRef.current || !pickerMode || !selectedPoint) return;
+    import("leaflet").then((L) => {
+      if (pickerMarkerRef.current) {
+        pickerMarkerRef.current.setLatLng([selectedPoint.lat, selectedPoint.lng]);
+      } else {
+        pickerMarkerRef.current = L.marker(
+          [selectedPoint.lat, selectedPoint.lng],
+          { icon: makeIcon(L, "#2563eb") }
+        ).addTo(mapRef.current);
+      }
+      mapRef.current.panTo([selectedPoint.lat, selectedPoint.lng]);
+    });
   }, [selectedPoint, pickerMode]);
 
-  // ── Sync booth markers (display mode) ─────────────────────
+  // Sync booth markers
   useEffect(() => {
     if (!mapRef.current || pickerMode) return;
+    import("leaflet").then((L) => {
+      // Xóa markers cũ
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
 
-    // Clear old markers
-    markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = [];
+      booths.forEach((booth) => {
+        const lat = parseFloat(booth.latitude);
+        const lng = parseFloat(booth.longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
 
-    booths.forEach((booth) => {
-      const lat = parseFloat(booth.latitude);
-      const lng = parseFloat(booth.longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
+        const label = booth.boothName || booth.name || "";
+        const marker = L.marker([lat, lng], { icon: makeIcon(L, booth.color || "#6366f1") })
+          .addTo(mapRef.current)
+          .bindTooltip(label, { permanent: false, direction: "top", offset: [0, -10] });
 
-      const marker = new window.google.maps.Marker({
-        position: { lat, lng },
-        map: mapRef.current,
-        title: booth.name,
+        marker.on("click", () => onMarkerClick?.(booth.id));
+        markersRef.current.push(marker);
       });
-      marker.addListener("click", () => onMarkerClick?.(booth.id));
-      markersRef.current.push(marker);
+
+      // Vị trí người dùng
+      if (userMarkerRef.current) { userMarkerRef.current.remove(); userMarkerRef.current = null; }
+      if (userPosition) {
+        userMarkerRef.current = L.circleMarker(
+          [userPosition.lat, userPosition.lng],
+          { radius: 10, fillColor: "#2563eb", fillOpacity: 1, color: "#fff", weight: 3 }
+        ).addTo(mapRef.current)
+         .bindTooltip("Vị trí của bạn", { direction: "top" });
+      }
+
+      // Pan tới booth đầu tiên
+      if (booths.length) {
+        const lat = parseFloat(booths[0].latitude);
+        const lng = parseFloat(booths[0].longitude);
+        if (!isNaN(lat) && !isNaN(lng)) mapRef.current.setView([lat, lng], 16);
+      }
     });
-
-    // User position — blue marker
-    if (userPosition) {
-      const userMarker = new window.google.maps.Marker({
-        position: userPosition,
-        map: mapRef.current,
-        title: "Vị trí của bạn",
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: "#2563eb",
-          fillOpacity: 1,
-          strokeColor: "#fff",
-          strokeWeight: 2,
-        },
-      });
-      markersRef.current.push(userMarker);
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booths, userPosition]);
 
-  // ── Render ─────────────────────────────────────────────────
-  if (error) {
-    return (
-      <div className="gmap-error">
-        <span>⚠️ {error}</span>
-      </div>
-    );
-  }
-
   return (
     <div className="gmap-wrapper">
-      {loading && (
-        <div className="gmap-loading">
-          <div className="gmap-loading__spinner" />
-          <span>Đang tải bản đồ...</span>
-        </div>
-      )}
-      <div
-        ref={containerRef}
-        className="gmap-container"
-        style={{ opacity: loading ? 0 : 1 }}
-      />
+      <div ref={containerRef} className="gmap-container" />
     </div>
   );
+}
+
+function makeIcon(L, color) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38">
+    <path d="M15 0C8.4 0 3 5.4 3 12c0 9 12 26 12 26S27 21 27 12C27 5.4 21.6 0 15 0z"
+      fill="${color}" stroke="#fff" stroke-width="2"/>
+    <circle cx="15" cy="12" r="5" fill="#fff" opacity="0.9"/>
+  </svg>`;
+  return L.divIcon({
+    html: svg, iconSize: [30, 38], iconAnchor: [15, 38],
+    tooltipAnchor: [0, -38], className: "",
+  });
 }

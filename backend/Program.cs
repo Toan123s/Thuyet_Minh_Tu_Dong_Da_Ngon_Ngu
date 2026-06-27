@@ -1,4 +1,4 @@
-// Program.cs — paste đè toàn bộ
+using System.Text.Json.Serialization;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -11,21 +11,29 @@ using backend.Helpers;
 var builder = WebApplication.CreateBuilder(args);
 
 // ============================================
-// 1. CẤU HÌNH CONTROLLERS
+// 1. CAU HINH CONTROLLERS
 // ============================================
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        // FIX 1: camelCase de frontend doc duoc (item.id, item.visitedAt, item.languageCode...)
+        // Truoc day backend tra "Id","VisitedAt","LanguageCode" (PascalCase) nhung frontend doc item.id → undefined
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // ============================================
-// 2. CẤU HÌNH DATABASE
+// 2. CAU HINH DATABASE
 // ============================================
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
 
 // ============================================
-// 3. CẤU HÌNH CORS
+// 3. CAU HINH CORS
 // ============================================
 builder.Services.AddCors(options =>
 {
@@ -39,7 +47,7 @@ builder.Services.AddCors(options =>
 });
 
 // ============================================
-// 4. ĐĂNG KÝ REPOSITORIES (GIỮ INTERFACE)
+// 4. DANG KY REPOSITORIES
 // ============================================
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IVendorRepository, VendorRepository>();
@@ -52,42 +60,31 @@ builder.Services.AddScoped<IImageRepository, ImageRepository>();
 builder.Services.AddScoped<IVideoRepository, VideoRepository>();
 builder.Services.AddScoped<IVisitLogRepository, VisitLogRepository>();
 
-// 4b. ĐĂNG KÝ THÊM CLASS CỤ THỂ — vì các Service ở dưới (không dùng
-//     interface) inject trực tiếp ImageRepository/VideoRepository/...
-//     thay vì IImageRepository/IVideoRepository/..., nên cần đăng ký
-//     thêm để DI container resolve được đúng class.
+// 4b. Dang ky them class cu the
 builder.Services.AddScoped<ImageRepository>();
 builder.Services.AddScoped<VideoRepository>();
 builder.Services.AddScoped<VisitLogRepository>();
 builder.Services.AddScoped<NarrationRepository>();
 builder.Services.AddScoped<TranslationRepository>();
-
-// 4c. AuthRepository (dùng trực tiếp class, không qua interface)
 builder.Services.AddScoped<AuthRepository>();
 
 // ============================================
-// 5. ĐĂNG KÝ SERVICES (KHÔNG DÙNG INTERFACE)
+// 5. DANG KY SERVICES
 // ============================================
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<NarrationService>();
 builder.Services.AddScoped<TranslationService>();
 builder.Services.AddScoped<SpeechService>();
 builder.Services.AddScoped<MediaService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<VisitLogService>();
-
-// 🔥 5b. BA SERVICE NÀY BỊ THIẾU TRONG BẢN GỐC — đây là nguyên nhân
-//     /api/auth/login, /api/admin/accounts/*, /api/register/*,
-//     /api/vendor/* trả lỗi 500 "Unable to resolve service for type...".
 builder.Services.AddScoped<JwtHelper>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<VendorService>();
 
 // ============================================
-// 5c. CẤU HÌNH JWT AUTHENTICATION
-//     (trước đây chưa được bật, nên VendorController.GetAccountId()
-//     đọc User.Claims luôn rỗng → luôn trả 401 "Không xác định được
-//     tài khoản" dù token hợp lệ).
+// 6. CAU HINH JWT AUTHENTICATION
 // ============================================
 var jwtKey = builder.Configuration["Jwt:Key"]!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -95,25 +92,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidateAudience = true,
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidateIssuer           = true,
+            ValidIssuer              = builder.Configuration["Jwt:Issuer"],
+            ValidateAudience         = true,
+            ValidAudience            = builder.Configuration["Jwt:Audience"],
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero,
+            IssuerSigningKey         = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidateLifetime         = true,
+            ClockSkew                = TimeSpan.Zero,
         };
     });
 builder.Services.AddAuthorization();
 
 // ============================================
-// 6. XÂY DỰNG APP
+// 7. XAY DUNG APP
 // ============================================
 var app = builder.Build();
 
 // ============================================
-// 7. PIPELINE
+// 8. PIPELINE
 // ============================================
 if (app.Environment.IsDevelopment())
 {
@@ -124,20 +121,24 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("AllowAll");
-app.UseAuthentication();   // 🔥 PHẢI đứng trước UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
 // ============================================
-// 8. TẠO THƯ MỤC QR CODES
+// 9. TAO THU MUC QR CODES VA AUDIO
 // ============================================
 try
 {
-    var qrDir = Path.Combine(app.Environment.WebRootPath, "qrcodes");
-    if (!Directory.Exists(qrDir))
+    var webRoot = app.Environment.WebRootPath ?? "wwwroot";
+    foreach (var dir in new[] { "qrcodes", "audio" })
     {
-        Directory.CreateDirectory(qrDir);
-        Console.WriteLine($"📁 Đã tạo thư mục: {qrDir}");
+        var path = Path.Combine(webRoot, dir);
+        if (!Directory.Exists(path))
+        {
+            Directory.CreateDirectory(path);
+            Console.WriteLine($"Da tao thu muc: {path}");
+        }
     }
 }
 catch { }

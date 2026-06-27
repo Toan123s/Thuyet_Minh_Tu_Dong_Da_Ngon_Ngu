@@ -226,3 +226,11 @@ C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net1
 C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\runtimes\win\lib\net6.0\Microsoft.Win32.SystemEvents.dll
 C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\runtimes\unix\lib\net6.0\System.Drawing.Common.dll
 C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\runtimes\win\lib\net6.0\System.Drawing.Common.dll
+C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\ClosedXML.dll
+C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\ClosedXML.Parser.dll
+C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\DocumentFormat.OpenXml.dll
+C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\DocumentFormat.OpenXml.Framework.dll
+C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\ExcelNumberFormat.dll
+C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\RBush.dll
+C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\SixLabors.Fonts.dll
+C:\Users\ACER\OneDrive\Work\CShap\Doan_ThuyetMinDaNgonNGu\backend\bin\Debug\net10.0\System.IO.Packaging.dll

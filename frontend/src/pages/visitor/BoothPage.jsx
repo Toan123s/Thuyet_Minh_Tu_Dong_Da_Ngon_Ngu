@@ -2,82 +2,14 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Toast, { useToast } from "../../components/Toast/Toast";
 import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
+import LanguageSelector from "../../components/LanguageSelector/LanguageSelector";
 import { useLanguage } from "../../hooks/useLanguage";
+import { t } from "../../lang";
 import boothService from "../../services/boothService";
-import narrationService from "../../services/narrationService";
 import translationService from "../../services/translationService";
 import visitLogService from "../../services/visitLogService";
 import speechService from "../../services/speechService";
-import { isPaidAndValid, getRemainingTime } from "../../untils/helpers";
 import "./BoothPage.css";
-
-const UI_TEXT = {
-  vi: {
-    back: "⬅️ Bản đồ", noContent: "Chưa có nội dung thuyết minh.",
-    locked: "🔒 Vui lòng thanh toán phí sử dụng để nghe thuyết minh tự động.",
-    payBtn: "💳 Thanh toán để nghe thuyết minh",
-    play: "▶️ Bắt đầu nghe", stop: "⏸️ Dừng",
-    playing: "🔊 Đang phát...",
-    images: "Hình ảnh", videos: "Video", info: "Thông tin",
-    noImages: "Chưa có hình ảnh.", noVideos: "Chưa có video.",
-    loadingTrans: "Đang tải bản dịch...", noTrans: "Chưa có bản dịch.",
-  },
-  en: {
-    back: "⬅️ Map", noContent: "No narration content available.",
-    locked: "🔒 Please complete the payment to unlock narration.",
-    payBtn: "💳 Pay to unlock narration",
-    play: "▶️ Start narration", stop: "⏸️ Stop",
-    playing: "🔊 Playing...",
-    images: "Images", videos: "Videos", info: "Info",
-    noImages: "No images available.", noVideos: "No videos available.",
-    loadingTrans: "Loading translation...", noTrans: "No translation available.",
-  },
-  ja: {
-    back: "⬅️ マップ", noContent: "解説コンテンツがありません。",
-    locked: "🔒 決済を完了してください。",
-    payBtn: "💳 解説を聴くには支払う",
-    play: "▶️ 解説を開始", stop: "⏸️ 停止",
-    playing: "🔊 再生中...",
-    images: "画像", videos: "動画", info: "情報",
-    noImages: "画像がありません。", noVideos: "動画がありません。",
-    loadingTrans: "翻訳を読み込んでいます...", noTrans: "翻訳がありません。",
-  },
-  zh: {
-    back: "⬅️ 地图", noContent: "暂无解说内容。",
-    locked: "🔒 请先完成支付。",
-    payBtn: "💳 付款解锁讲解",
-    play: "▶️ 开始讲解", stop: "⏸️ 停止",
-    playing: "🔊 播放中...",
-    images: "图片", videos: "视频", info: "信息",
-    noImages: "暂无图片。", noVideos: "暂无视频。",
-    loadingTrans: "正在加载翻译...", noTrans: "暂无翻译。",
-  },
-  ko: {
-    back: "⬅️ 지도", noContent: "해설 콘텐츠가 없습니다.",
-    locked: "🔒 결제를 완료해 주세요。",
-    payBtn: "💳 해설 결제하기",
-    play: "▶️ 해설 시작", stop: "⏸️ 정지",
-    playing: "🔊 재생 중...",
-    images: "이미지", videos: "비디오", info: "정보",
-    noImages: "이미지가 없습니다.", noVideos: "비디오가 없습니다.",
-    loadingTrans: "번역 로딩 중...", noTrans: "번역이 없습니다.",
-  },
-  fr: {
-    back: "⬅️ Carte", noContent: "Aucun contenu disponible.",
-    locked: "🔒 Veuillez effectuer le paiement.",
-    payBtn: "💳 Payer pour écouter",
-    play: "▶️ Commencer", stop: "⏸️ Arrêter",
-    playing: "🔊 En cours...",
-    images: "Images", videos: "Vidéos", info: "Info",
-    noImages: "Aucune image.", noVideos: "Aucune vidéo.",
-    loadingTrans: "Chargement...", noTrans: "Aucune traduction.",
-  },
-};
-
-const SPEECH_LANG = {
-  vi: "vi-VN", en: "en-US", ja: "ja-JP",
-  zh: "zh-CN", ko: "ko-KR", fr: "fr-FR",
-};
 
 function getEmbedUrl(url) {
   if (!url) return null;
@@ -89,16 +21,12 @@ function getEmbedUrl(url) {
 }
 
 export default function BoothPage() {
-  const { id }      = useParams();
-  const navigate    = useNavigate();
+  const { id }         = useParams();
+  const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
   const { toasts, showToast } = useToast();
-
-  // ── Ngôn ngữ: nguồn sự thật duy nhất, dùng chung với LandingPage + MapPage ──
-  const { lang } = useLanguage();
-
-  const eventId = searchParams.get("event") || "1";
-  const t       = UI_TEXT[lang] ?? UI_TEXT["en"];
+  const { lang, setLang } = useLanguage();
+  const eventId        = searchParams.get("event") || "1";
 
   const [booth,        setBooth]        = useState(null);
   const [narration,    setNarration]    = useState(null);
@@ -109,131 +37,97 @@ export default function BoothPage() {
   const [imgIndex,     setImgIndex]     = useState(0);
   const [activeTab,    setActiveTab]    = useState("info");
 
-  // ── Fix react-hooks/purity: Date.now() là hàm impure, không gọi trong
-  //    lúc render (useRef(Date.now()) chạy lại mỗi lần component render).
-  //    Dùng useRef(null) rồi gán giá trị thật trong effect (effect được
-  //    phép chứa side-effect, chỉ không được setState đồng bộ). ──
-  const visitStartRef = useRef(null);
-  const audioRef      = useRef(null);
+  const audioRef        = useRef(null);
+  const activeSpeechRef = useRef(null);
+  const visitStartRef   = useRef(Date.now());
 
-  const isPaid    = isPaidAndValid(eventId);
-  const remaining = getRemainingTime(eventId);
-
-  // Fetch booth + narration
+  // 1. Fetch booth
   useEffect(() => {
     if (!id) return;
-    let cancelled = false;
+    setLoading(true);
+    boothService.getById(id)
+      .then((data) => { setBooth(data); setNarration(data?.narration ?? null); })
+      .catch(() => showToast("Không thể tải thông tin gian hàng.", "error"))
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-    // setLoading(true) đẩy vào microtask để không bị tính là "setState
-    // đồng bộ ngay trong thân effect" (react-hooks/set-state-in-effect).
-    Promise.resolve().then(() => { if (!cancelled) setLoading(true); });
-
-    Promise.all([
-      boothService.getById(id),
-      narrationService.getByBoothId(id),
-    ])
-      .then(([boothData, narrationData]) => {
-        if (cancelled) return;
-        setBooth(boothData);
-        setNarration(narrationData);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        showToast("Không thể tải thông tin gian hàng.", "error");
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [id, showToast]);
-
-  // Fetch translation khi đổi lang.
-  // ── Fix react-hooks/set-state-in-effect: thay vì set state ĐỒNG BỘ ngay
-  //    khi điều kiện early-return đúng, ta gói toàn bộ logic (kể cả case
-  //    "không cần dịch") vào trong 1 Promise duy nhất, để mọi setState đều
-  //    nằm trong callback .then()/.finally() — đúng pattern bất đồng bộ. ──
+  // 2. Fetch translation khi đổi ngôn ngữ
   useEffect(() => {
+    if (!narration?.id || lang === "vi") { setTranslation(null); return; }
     let cancelled = false;
-
-    const shouldTranslate = narration?.id && lang !== "vi";
-
-    // setLoadingTrans(...) đẩy vào microtask để tránh setState đồng bộ
-    // ngay trong thân effect (react-hooks/set-state-in-effect).
-    Promise.resolve().then(() => {
-      if (!cancelled) setLoadingTrans(shouldTranslate ? true : false);
-    });
-
-    const task = shouldTranslate
-      ? translationService.getOne(narration.id, lang)
-      : Promise.resolve(null);
-
-    task
+    setLoadingTrans(true);
+    translationService.getOne(narration.id, lang)
       .then((data) => { if (!cancelled) setTranslation(data); })
       .catch(() => { if (!cancelled) setTranslation(null); })
       .finally(() => { if (!cancelled) setLoadingTrans(false); });
-
     return () => { cancelled = true; };
-  }, [lang, narration?.id]);
+  }, [narration?.id, lang]);
 
-  // Stop audio khi đổi lang.
-  // ── Fix react-hooks/set-state-in-effect: cleanup phía ngoại vi
-  //    (speechSynthesis, audio element) vẫn được phép chạy trực tiếp —
-  //    đó đúng là việc effect nên làm (đồng bộ với hệ thống bên ngoài).
-  //    setIsPlaying(false) được đẩy vào microtask (Promise.resolve().then)
-  //    để không còn là "setState đồng bộ trong thân effect". ──
+  // 3. Dừng audio khi đổi ngôn ngữ
   useEffect(() => {
+    activeSpeechRef.current?.stop?.();
     speechService.stopAll(audioRef);
-    Promise.resolve().then(() => setIsPlaying(false));
+    setIsPlaying(false);
   }, [lang]);
 
-  // Ghi visit log khi rời trang
-  const logVisit = useCallback(() => {
-    const startedAt = visitStartRef.current ?? Date.now();
-    const duration = Math.round((Date.now() - startedAt) / 1000);
-    if (duration > 3) {
-      visitLogService.log({
-        boothId:      id,
-        languageCode: lang,
-        deviceType:   /Mobile/.test(navigator.userAgent) ? "Mobile" : "Desktop",
-        durationSec:  duration,
-      }).catch(() => {});
-    }
-  }, [id, lang]);
-
+  // 4. Ghi visit log
   useEffect(() => {
-    visitStartRef.current = Date.now(); // side-effect hợp lệ: ghi vào ref, không setState
+    visitStartRef.current = Date.now();
     return () => {
+      const duration = Math.round((Date.now() - visitStartRef.current) / 1000);
+      if (duration > 3) {
+        visitLogService.log({
+          boothId: id, languageCode: lang,
+          deviceType: /Mobile/i.test(navigator.userAgent) ? "Mobile" : "Desktop",
+          durationSec: duration,
+        }).catch(() => {});
+      }
+      activeSpeechRef.current?.stop?.();
       speechService.stopAll(audioRef);
-      logVisit();
     };
-  }, [logVisit]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const viContent = narration?.content || booth?.description || "";
 
   function getContent() {
-    if (lang === "vi") return narration?.content || booth?.description || t.noContent;
-    if (loadingTrans)  return t.loadingTrans;
-    return translation?.translatedContent || t.noTrans;
+    if (lang === "vi") return viContent || t(lang, "noContent");
+    if (loadingTrans)  return t(lang, "loadingTrans");
+    if (translation?.content) return translation.content;
+    return viContent || t(lang, "noContent");
   }
 
-  // Giữ "tay điều khiển" của lượt phát hiện tại (trả về từ speechService.speak)
-  // để có thể .stop() đúng nguồn đang phát (Azure audio hoặc Web Speech),
-  // không cần biết trước đang dùng nguồn nào.
-  const activeSpeechRef = useRef(null);
+  const isFallbackToVi = lang !== "vi" && !loadingTrans && !translation?.content && !!viContent;
 
   const toggleSpeech = useCallback(async () => {
     if (isPlaying) {
-      activeSpeechRef.current?.stop();
+      activeSpeechRef.current?.stop?.();
       speechService.stopAll(audioRef);
       setIsPlaying(false);
       return;
     }
-
     const text = getContent();
-    if (!text || text === t.noContent || text === t.noTrans) {
+    const noContent = t(lang, "noContent");
+    const loadingText = t(lang, "loadingTrans");
+    if (!text || text === noContent || text === loadingText) {
       showToast("Chưa có nội dung để phát.", "warning");
       return;
     }
+    const speakLang = isFallbackToVi ? "vi" : lang;
+
+    // ✅ Ghi log NGAY KHI bắt đầu phát — không chờ unmount
+    // để dashboard cập nhật ngay, tránh mất log khi đóng tab
+    visitStartRef.current = Date.now();
+    visitLogService.log({
+      boothId:     id,
+      languageCode: lang,
+      deviceType:  /Mobile/i.test(navigator.userAgent) ? "Mobile" : "Desktop",
+      durationSec: 0, // sẽ được ghi thêm lần 2 khi unmount với duration thật
+    }).catch(() => {});
 
     const handle = await speechService.speak({
-      text,
-      languageCode: lang,
+      text, languageCode: speakLang,
       onPlayStateChange: setIsPlaying,
       audioElRef: audioRef,
     });
@@ -241,16 +135,11 @@ export default function BoothPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, lang, narration, translation, loadingTrans]);
 
-  // ── Tự động phát khi vào trang từ geofence (?auto=1) ─────────
-  // Khi useGeofence (chạy nền toàn app) tự điều hướng người dùng tới
-  // đây vì họ đã đứng trong phạm vi booth đủ lâu, trang tự phát luôn
-  // thuyết minh — đúng yêu cầu "không cần bấm vào để nghe".
+  // Auto-play khi vào từ geofence (?auto=1)
   useEffect(() => {
-    const isAuto = searchParams.get("auto") === "1";
-    if (!isAuto || loading || loadingTrans || isPlaying) return;
-    if (!isPaid) return; // vẫn tôn trọng paywall nếu sự kiện yêu cầu trả phí
-
-    Promise.resolve().then(() => { toggleSpeech(); });
+    if (searchParams.get("auto") !== "1") return;
+    if (loading || loadingTrans || isPlaying) return;
+    toggleSpeech();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, loadingTrans]);
 
@@ -259,138 +148,183 @@ export default function BoothPage() {
 
   if (loading) {
     return (
-      <div className="booth-loading">
+      <div className="bp-loading">
         <LoadingSpinner size="lg" label="Đang tải gian hàng..." />
       </div>
     );
   }
 
-  return (
-    <div className="booth-page">
-      <Toast toasts={toasts} />
+  if (!booth) {
+    return (
+      <div className="bp-loading">
+        <div className="bp-not-found">
+          <div className="bp-not-found-icon">🏚️</div>
+          <p>Không tìm thấy gian hàng.</p>
+          <button onClick={() => navigate(`/map?event=${eventId}&lang=${lang}`)}>
+            ← Quay lại bản đồ
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-      {/* Audio ẩn — dùng để phát file mp3 do Azure Speech sinh ra.
-          Khi Azure chưa cấu hình (chưa có key), speechService tự
-          fallback sang window.speechSynthesis của browser, element
-          này không được dùng tới nhưng vẫn an toàn để sẵn trong DOM. */}
+  return (
+    <div className="bp-page">
+      <Toast toasts={toasts} />
       <audio ref={audioRef} style={{ display: "none" }} />
 
-      {/* Header */}
-      <div className="booth-header">
-        <button className="booth-header__back"
-          onClick={() => navigate(`/map?event=${eventId}&lang=${lang}`)}>
-          {t.back}
+      {/* ── Header ────────────────────────────── */}
+      <div className="bp-header">
+        <button
+          className="bp-back-btn"
+          onClick={() => navigate(`/map?event=${eventId}&lang=${lang}`)}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          <span>{t(lang, "back").replace("⬅️ ", "")}</span>
         </button>
-        <div className="booth-header__info">
-          <h3 className="booth-header__name">{booth?.name}</h3>
-          {booth?.categoryName && (
-            <span className="booth-header__category">🏷 {booth.categoryName}</span>
+
+        <div className="bp-header-info">
+          <h2 className="bp-header-name">{booth.boothName}</h2>
+          {booth.categoryName && (
+            <span className="bp-header-cat">{booth.categoryName}</span>
           )}
         </div>
-        {isPaid && remaining && (
-          <div className="booth-header__badge">⏱ {remaining}</div>
-        )}
+
+        <LanguageSelector value={lang} onChange={setLang} />
       </div>
 
-      {/* Carousel ảnh */}
-      <div className="booth-carousel">
+      {/* ── Image carousel ────────────────────── */}
+      <div className="bp-carousel">
         {images.length > 0 ? (
           <>
-            <img src={images[imgIndex]?.filePath} alt="booth" className="booth-carousel__img" />
-            <div className="booth-carousel__nav">
-              <button onClick={() => setImgIndex((imgIndex - 1 + images.length) % images.length)}>◀️</button>
-              <span>{imgIndex + 1}/{images.length}</span>
-              <button onClick={() => setImgIndex((imgIndex + 1) % images.length)}>▶️</button>
-            </div>
+            <img src={images[imgIndex]?.filePath} alt="booth" className="bp-carousel-img" />
+            {images.length > 1 && (
+              <div className="bp-carousel-nav">
+                <button onClick={() => setImgIndex((imgIndex - 1 + images.length) % images.length)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <span>{imgIndex + 1} / {images.length}</span>
+                <button onClick={() => setImgIndex((imgIndex + 1) % images.length)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
+            )}
+            {/* Dots */}
+            {images.length > 1 && (
+              <div className="bp-carousel-dots">
+                {images.map((_, i) => (
+                  <span key={i} className={`bp-carousel-dot ${i === imgIndex ? "bp-carousel-dot--on" : ""}`}
+                    onClick={() => setImgIndex(i)} />
+                ))}
+              </div>
+            )}
           </>
         ) : (
-          <div className="booth-carousel__empty">🏪</div>
+          <div className="bp-carousel-empty">🏪</div>
         )}
       </div>
 
-      {/* Tab bar */}
-      <div className="booth-tabs">
+      {/* ── Tabs ──────────────────────────────── */}
+      <div className="bp-tabs">
         {[
-          { key: "info",   label: `📋 ${t.info}`   },
-          { key: "images", label: `🖼 ${t.images}`  },
-          { key: "videos", label: `🎬 ${t.videos}`  },
+          { key: "info",   emoji: "📋", label: t(lang, "info")   },
+          { key: "images", emoji: "🖼",  label: t(lang, "images") },
+          { key: "videos", emoji: "🎬", label: t(lang, "videos") },
         ].map(tab => (
           <button key={tab.key}
-            className={`booth-tab ${activeTab === tab.key ? "booth-tab--active" : ""}`}
+            className={`bp-tab ${activeTab === tab.key ? "bp-tab--on" : ""}`}
             onClick={() => setActiveTab(tab.key)}>
+            <span className="bp-tab-emoji">{tab.emoji}</span>
             {tab.label}
           </button>
         ))}
       </div>
 
-      <div className="booth-body">
+      {/* ── Tab body ──────────────────────────── */}
+      <div className="bp-body">
 
-        {/* Tab: Thông tin */}
+        {/* Info tab */}
         {activeTab === "info" && (
           <>
-            <div className="booth-content-box">
+            {/* Audio button — prominent, at top */}
+            <div className="bp-audio-bar">
+              <button
+                className={`bp-audio-btn ${isPlaying ? "bp-audio-btn--stop" : "bp-audio-btn--play"}`}
+                onClick={toggleSpeech}
+                disabled={loadingTrans}
+              >
+                {isPlaying ? (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    {t(lang, "stop")}
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                    {t(lang, "play")}
+                  </>
+                )}
+              </button>
+              {isPlaying && (
+                <div className="bp-audio-wave">
+                  <span/><span/><span/><span/><span/>
+                </div>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="bp-content-box">
               {loadingTrans
-                ? <LoadingSpinner size="sm" label={t.loadingTrans} />
-                : <p className="booth-description">{getContent()}</p>
+                ? <LoadingSpinner size="sm" label={t(lang, "loadingTrans")} />
+                : <p className="bp-description">{getContent()}</p>
               }
             </div>
 
-            {!isPaid ? (
-              <div className="booth-locked">
-                <p className="booth-locked__text">{t.locked}</p>
-                <button className="booth-locked__btn"
-                  onClick={() => navigate(`/payment?event=${eventId}&lang=${lang}`)}>
-                  {t.payBtn}
-                </button>
-              </div>
-            ) : (
-              <div className="booth-audio">
-                <button onClick={toggleSpeech} disabled={loadingTrans}
-                  className={`booth-audio__btn ${isPlaying ? "booth-audio__btn--stop" : "booth-audio__btn--play"}`}>
-                  {isPlaying ? t.stop : t.play}
-                </button>
-                {isPlaying && (
-                  <p className="booth-audio__status">{t.playing} [{SPEECH_LANG[lang]}]</p>
-                )}
+            {isFallbackToVi && (
+              <div className="bp-fallback-note">
+                ℹ️ Chưa có bản dịch cho ngôn ngữ này — đang hiển thị nội dung tiếng Việt gốc.
               </div>
             )}
           </>
         )}
 
-        {/* Tab: Hình ảnh */}
+        {/* Images tab */}
         {activeTab === "images" && (
-          <div className="booth-media-grid">
+          <div className="bp-media-grid">
             {images.length === 0
-              ? <p className="booth-media__empty">{t.noImages}</p>
+              ? <p className="bp-media-empty">{t(lang, "noImages")}</p>
               : images.map((img, i) => (
-                <div key={img.id ?? i} className="booth-media-grid__item">
+                <div key={img.id ?? i} className="bp-media-item">
                   <img src={img.filePath} alt={img.caption || "booth"} />
-                  {img.caption && <p className="booth-media-grid__caption">{img.caption}</p>}
+                  {img.caption && <p className="bp-media-caption">{img.caption}</p>}
                 </div>
               ))
             }
           </div>
         )}
 
-        {/* Tab: Video */}
+        {/* Videos tab */}
         {activeTab === "videos" && (
-          <div className="booth-videos">
+          <div className="bp-videos">
             {videos.length === 0
-              ? <p className="booth-media__empty">{t.noVideos}</p>
+              ? <p className="bp-media-empty">{t(lang, "noVideos")}</p>
               : videos.map((v, i) => {
-                const embedUrl = getEmbedUrl(v.videoUrl);
-                return (
-                  <div key={v.id ?? i} className="booth-video-item">
-                    {v.title && <p className="booth-video-item__title">🎬 {v.title}</p>}
-                    {embedUrl
-                      ? <iframe src={embedUrl} className="booth-video-item__iframe"
-                          allowFullScreen title={v.title || "video"} />
-                      : <a href={v.videoUrl} target="_blank" rel="noreferrer"
-                          className="booth-video-item__link">{v.videoUrl}</a>
-                    }
-                  </div>
-                );
-              })
+                  const embed = getEmbedUrl(v.videoUrl);
+                  return (
+                    <div key={v.id ?? i} className="bp-video-item">
+                      {v.title && <p className="bp-video-title">🎬 {v.title}</p>}
+                      {embed
+                        ? <iframe src={embed} className="bp-video-iframe"
+                            allowFullScreen title={v.title || "video"} />
+                        : <a href={v.videoUrl} target="_blank" rel="noreferrer"
+                            className="bp-video-link">{v.videoUrl}</a>
+                      }
+                    </div>
+                  );
+                })
             }
           </div>
         )}

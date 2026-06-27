@@ -1,59 +1,27 @@
-/* GoogleMapWidget.css */
+/* GoogleMap.css — map luôn fill 100% container cha */
 .gmap-wrapper {
   position: relative;
   width: 100%;
-  height: 24rem;
-  border-radius: 0 0 0.75rem 0.75rem;
+  height: 100%;       /* fill toàn bộ .mp-map-area */
   overflow: hidden;
 }
 
 .gmap-container {
   width: 100%;
   height: 100%;
-  transition: opacity 0.3s;
 }
 
-.gmap-loading {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.625rem;
-  background: #f3f4f6;
-  z-index: 10;
-  font-size: 1rem;
-  color: #6b7280;
+/* Fix Leaflet z-index */
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 10 !important;
 }
 
-.gmap-loading__spinner {
-  width: 2rem;
-  height: 2rem;
-  border: 3px solid #e5e7eb;
-  border-top-color: #2563eb;
-  border-radius: 50%;
-  animation: gmap-spin 0.7s linear infinite;
-}
-
-.gmap-error {
-  width: 100%;
-  height: 14rem;
-  background: #fff7ed;
-  border: 1px dashed #fed7aa;
-  border-radius: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  color: #c2410c;
-  gap: 0.4rem;
-}
-
-@keyframes gmap-spin {
-  to { transform: rotate(360deg); }
-}
-
-@media (max-width: 480px) {
-  .gmap-wrapper { height: 18rem; }
+.leaflet-tooltip {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 4px 10px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }

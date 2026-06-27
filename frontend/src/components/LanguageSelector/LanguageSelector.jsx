@@ -2,47 +2,37 @@ import { useState, useEffect, useRef } from "react";
 import "./LanguageSelector.css";
 
 // ─── Config ───────────────────────────────────────────────────
+// Đồng bộ với SUPPORTED_LANGUAGES trong hooks/useLanguage.js — đây
+// là component THUẦN HIỂN THỊ, không tự đọc/ghi localStorage nữa.
+// Mọi logic "ngôn ngữ hiện tại là gì, lưu ở đâu" đều do useLanguage()
+// xử lý ở component cha, tránh 2 nguồn sự thật khác nhau (1 ở đây,
+// 1 ở hook) như trước đây đã từng gây bug.
 export const LANGUAGES = [
   { code: "vi", label: "Tiếng Việt", flag: "🇻🇳" },
   { code: "en", label: "English",    flag: "🇬🇧" },
   { code: "ja", label: "日本語",      flag: "🇯🇵" },
   { code: "ko", label: "한국어",      flag: "🇰🇷" },
   { code: "zh", label: "中文",        flag: "🇨🇳" },
+  { code: "fr", label: "Français",   flag: "🇫🇷" },
 ];
-
-/** Detect ngôn ngữ trình duyệt và map về code hỗ trợ */
-function detectBrowserLang() {
-  const nav = navigator.language || "vi";
-  const code = nav.split("-")[0].toLowerCase();
-  return LANGUAGES.find((l) => l.code === code)?.code ?? "vi";
-}
-
-/** Đọc / ghi ngôn ngữ vào localStorage */
-export function getSavedLang() {
-  return localStorage.getItem("lang") || detectBrowserLang();
-}
-export function saveLang(code) {
-  localStorage.setItem("lang", code);
-}
 
 // ─── Component ────────────────────────────────────────────────
 /**
+ * Component THUẦN ĐIỀU KHIỂN (controlled) — không tự quản lý state
+ * ngôn ngữ, không tự đụng vào localStorage. Component cha PHẢI dùng
+ * useLanguage() và truyền value/onChange xuống:
+ *
+ *   const { lang, setLang } = useLanguage();
+ *   <LanguageSelector value={lang} onChange={setLang} />
+ *
  * Props:
  *  - variant  : "dropdown" | "inline"
- *               dropdown → button + popover (dùng ở V4 – header gian hàng)
- *               inline   → danh sách lớn (dùng ở V1 – landing page)
- *  - onChange : (langCode: string) => void
- *  - value    : string (controlled, optional — nếu không truyền tự quản lý state)
+ *  - value    : string (bắt buộc — code ngôn ngữ hiện tại)
+ *  - onChange : (langCode: string) => void (bắt buộc)
  */
-export default function LanguageSelector({ variant = "dropdown", onChange, value }) {
+export default function LanguageSelector({ variant = "dropdown", value, onChange }) {
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(value ?? getSavedLang());
   const ref = useRef(null);
-
-  // Sync controlled value
-  useEffect(() => {
-    if (value !== undefined) setSelected(value);
-  }, [value]);
 
   // Close khi click ngoài
   useEffect(() => {
@@ -55,13 +45,11 @@ export default function LanguageSelector({ variant = "dropdown", onChange, value
   }, [open]);
 
   const handleSelect = (code) => {
-    setSelected(code);
-    saveLang(code);
     onChange?.(code);
     setOpen(false);
   };
 
-  const current = LANGUAGES.find((l) => l.code === selected) ?? LANGUAGES[0];
+  const current = LANGUAGES.find((l) => l.code === value) ?? LANGUAGES[0];
 
   // ── INLINE (V1 – landing) ──────────────────────────────────
   if (variant === "inline") {
@@ -72,12 +60,12 @@ export default function LanguageSelector({ variant = "dropdown", onChange, value
           {LANGUAGES.map((lang) => (
             <button
               key={lang.code}
-              className={`lang-inline__item ${selected === lang.code ? "lang-inline__item--active" : ""}`}
+              className={`lang-inline__item ${value === lang.code ? "lang-inline__item--active" : ""}`}
               onClick={() => handleSelect(lang.code)}
             >
               <span className="lang-inline__flag">{lang.flag}</span>
               <span className="lang-inline__name">{lang.label}</span>
-              {selected === lang.code && <span className="lang-inline__check">✓</span>}
+              {value === lang.code && <span className="lang-inline__check">✓</span>}
             </button>
           ))}
         </div>
@@ -109,12 +97,12 @@ export default function LanguageSelector({ variant = "dropdown", onChange, value
           {LANGUAGES.map((lang) => (
             <button
               key={lang.code}
-              className={`lang-dd__option ${selected === lang.code ? "lang-dd__option--active" : ""}`}
+              className={`lang-dd__option ${value === lang.code ? "lang-dd__option--active" : ""}`}
               onClick={() => handleSelect(lang.code)}
             >
               <span className="lang-dd__flag">{lang.flag}</span>
               <span className="lang-dd__name">{lang.label}</span>
-              {selected === lang.code && (
+              {value === lang.code && (
                 <svg className="lang-dd__tick" width="14" height="14" viewBox="0 0 24 24"
                   fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="20 6 9 17 4 12" />

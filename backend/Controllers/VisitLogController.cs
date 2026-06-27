@@ -22,7 +22,8 @@ public class VisitLogController : ControllerBase
             LanguageCode = request.LanguageCode ?? "vi",
             DeviceType   = request.DeviceType   ?? "Mobile",
             Duration     = request.DurationSec,
-            VisitedAt    = DateTime.UtcNow,
+            // ✅ Đảm bảo Kind = Utc để .ToString("o") ra đúng "...Z"
+            VisitedAt    = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc),
         };
         _db.VisitLogs.Add(log);
         await _db.SaveChangesAsync();

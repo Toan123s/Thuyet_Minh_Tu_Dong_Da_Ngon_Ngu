@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout/Layout";
 import StatCard from "../../components/StatCard/StatCard";
@@ -11,6 +11,7 @@ import "./DashboardPage.css";
 const IconCalendar  = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 const IconPackage   = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l10 6.5v7L12 22 2 15.5v-7L12 2z"/><line x1="12" y1="22" x2="12" y2="11.5"/><polyline points="22 8.5 12 11.5 2 8.5"/></svg>;
 const IconHeadphone = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>;
+const IconUsersOnline = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const IconTrendUp   = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
 const IconPlus      = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const IconArrow     = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
@@ -81,16 +82,36 @@ export default function DashboardPage() {
   const [loadingBooths,   setLoadingBooths]   = useState(true);
   const [loadingActivity, setLoadingActivity] = useState(true);
 
-  // ── Fetch summary ──────────────────────────────────────────
-  useEffect(() => {
+  // ── Fetch tất cả số liệu — gọi lại được nhiều lần, không chỉ lúc mount ──
+  // Dashboard cần phản ánh hoạt động "gần real-time" (khách vừa nghe xong
+  // 1 booth thì admin nên thấy ngay), nhưng dự án không có WebSocket, nên
+  // dùng polling (setInterval) + refetch khi tab được focus lại — đủ tốt
+  // cho nhu cầu này, không cần hạ tầng phức tạp hơn.
+  //
+  // ⚠️ showToast (từ useToast()) được tạo lại MỖI LẦN component re-render
+  // vì useToast() không tự bọc nó trong useCallback. Nếu đưa showToast
+  // thẳng vào dependency của fetchSummary/fetchChart/..., mỗi render sẽ
+  // tạo ra 1 fetchSummary mới → fetchAll mới → useEffect chạy lại → set
+  // state → re-render → lại tạo showToast mới → LẶP VÔ HẠN (chính là lỗi
+  // "Maximum update depth exceeded" vừa gặp).
+  //
+  // Cách fix: giữ showToast trong 1 ref, luôn đọc bản mới nhất qua ref đó
+  // mà KHÔNG đưa ref vào dependency array — ref không bao giờ đổi tham
+  // chiếu nên các useCallback phía dưới được phép có dependency rỗng,
+  // ổn định vĩnh viễn.
+  const showToastRef = useRef(showToast);
+  useEffect(() => { showToastRef.current = showToast; }, [showToast]);
+
+  const fetchSummary = useCallback((silent = false) => {
+    if (!silent) setLoadingStats(true);
     adminStatsService.getSummary()
       .then(setStats)
-      .catch(err => showToast(err.message || "Không thể tải số liệu.", "error"))
+      .catch(err => { if (!silent) showToastRef.current(err.message || "Không thể tải số liệu.", "error"); })
       .finally(() => setLoadingStats(false));
   }, []);
 
-  // ── Fetch chart ────────────────────────────────────────────
-  useEffect(() => {
+  const fetchChart = useCallback((silent = false) => {
+    if (!silent) setLoadingChart(true);
     adminStatsService.getChart("7d")
       .then(res => {
         const normalized = res.labels
@@ -98,25 +119,57 @@ export default function DashboardPage() {
           : (res.data ?? res);
         setChartData(normalized);
       })
-      .catch(err => showToast(err.message || "Không thể tải biểu đồ.", "error"))
+      .catch(err => { if (!silent) showToastRef.current(err.message || "Không thể tải biểu đồ.", "error"); })
       .finally(() => setLoadingChart(false));
   }, []);
 
-  // ── Fetch top booths ───────────────────────────────────────
-  useEffect(() => {
+  const fetchTopBooths = useCallback((silent = false) => {
+    if (!silent) setLoadingBooths(true);
     adminStatsService.getTopBooths(5)
       .then(setTopBooths)
-      .catch(err => showToast(err.message || "Không thể tải top gian hàng.", "error"))
+      .catch(err => { if (!silent) showToastRef.current(err.message || "Không thể tải top gian hàng.", "error"); })
       .finally(() => setLoadingBooths(false));
   }, []);
 
-  // ── Fetch activity ─────────────────────────────────────────
-  useEffect(() => {
+  const fetchActivity = useCallback((silent = false) => {
+    if (!silent) setLoadingActivity(true);
     activityService.getRecent(5)
       .then(setActivity)
       .catch(() => setActivity([]))
       .finally(() => setLoadingActivity(false));
   }, []);
+
+  // fetchAll giờ có dependency rỗng thật sự (4 hàm trên đều ổn định vĩnh
+  // viễn nhờ deps rỗng phía trên), nên useEffect dùng fetchAll cũng ổn
+  // định, không còn kích hoạt lặp lại liên tục.
+  const fetchAll = useCallback((silent = false) => {
+    fetchSummary(silent);
+    fetchChart(silent);
+    fetchTopBooths(silent);
+    fetchActivity(silent);
+  }, [fetchSummary, fetchChart, fetchTopBooths, fetchActivity]);
+
+  // ── Fetch lần đầu khi vào trang ──────────────────────────────
+  useEffect(() => {
+    fetchAll(false);
+  }, [fetchAll]);
+
+  // ── Tự động refresh mỗi 30 giây (silent — không hiện skeleton/toast lỗi
+  // để không làm giật UI khi đang xem) ──────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => fetchAll(true), 30000);
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
+  // ── Refetch ngay khi quay lại tab (ví dụ vừa test nghe ở tab khác
+  // rồi bấm qua lại tab Dashboard) — không cần chờ tới chu kỳ 30s ──
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") fetchAll(true);
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchAll]);
 
   const totalListens = chartData.reduce((s, d) => s + (d.value ?? 0), 0);
 
@@ -131,6 +184,7 @@ export default function DashboardPage() {
             <p className="db-header__greeting">Xin chào, Admin 👋</p>
             <h1 className="db-header__title">Dashboard</h1>
             <p className="db-header__date">📅 {today()}</p>
+            <p className="db-header__refresh-note">🔄 Tự động cập nhật mỗi 30 giây</p>
           </div>
           <div className="db-header__actions">
             <button className="db-btn db-btn--outline" onClick={() => navigate("/admin/events")}>
@@ -151,6 +205,7 @@ export default function DashboardPage() {
               <StatCard icon={<IconCalendar />}  label="Sự kiện đang mở"   value={stats.events}  sub={stats.eventsDelta}  color="blue"   />
               <StatCard icon={<IconPackage />}   label="Gian hàng active"  value={stats.booths}  sub={stats.boothsDelta}  color="purple" />
               <StatCard icon={<IconHeadphone />} label="Lượt nghe hôm nay" value={typeof stats.listensToday === "number" ? stats.listensToday.toLocaleString() : stats.listensToday} sub={stats.listensDelta} color="green" />
+              <StatCard icon={<IconUsersOnline />} label="Hành khách online" value={stats.onlineVisitors ?? 0} sub="Khách đang dùng web (~5 phút gần nhất)" color="orange" />
             </>
           ) : null}
         </div>

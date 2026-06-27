@@ -11,6 +11,7 @@
 .db-header__greeting { font-size: 1rem; color: #6b7280; margin: 0 0 0.3rem; }
 .db-header__title { font-size: 1.9rem; font-weight: 700; color: #111827; margin: 0 0 0.3rem; letter-spacing: -0.4px; }
 .db-header__date { font-size: 0.95rem; color: #9ca3af; margin: 0; }
+.db-header__refresh-note { font-size: 0.8rem; color: #16a34a; margin: 2px 0 0; }
 .db-header__actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
 
 .db-btn {

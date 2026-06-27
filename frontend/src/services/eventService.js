@@ -37,6 +37,12 @@ const eventService = {
         return api.get(`/events/${id}/qrcode`, { responseType: 'blob' });
     },
 
+    // Visitor: lấy danh sách booth theo event (alias getByEventId từ boothService)
+    getBooths: (eventId) => {
+        if (!eventId) throw new Error('Event ID không hợp lệ!');
+        return api.get(`/booths/event/${eventId}`);
+    },
+
     checkQRExists: async (id) => {
         if (!id) return false;
         try {

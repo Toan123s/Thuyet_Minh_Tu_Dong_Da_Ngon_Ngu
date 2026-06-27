@@ -13,20 +13,17 @@ namespace backend.Models
 
         public string Location { get; set; } = string.Empty;
 
-        public DateTime StartDate { get; set; }
+        public DateTime? StartDate { get; set; }
 
-        public DateTime EndDate { get; set; }
+        public DateTime? EndDate { get; set; }
 
         public string LogoUrl { get; set; } = string.Empty;
 
         public string? QRCodeUrl { get; set; }
 
-        public DateTime CreatedAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
 
         public ICollection<Booth> Booths { get; set; }
             = new List<Booth>();
-
-        public ICollection<BoothRequestModel> BoothRequests { get; set; }
-            = new List<BoothRequestModel>();
     }
 }

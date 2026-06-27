@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
@@ -9,53 +10,39 @@ namespace backend.Repositories
     public class TranslationRepository : ITranslationRepository
     {
         private readonly AppDbContext _db;
+        public TranslationRepository(AppDbContext db) { _db = db; }
 
-        public TranslationRepository(AppDbContext db)
-        {
-            _db = db;
-        }
-
-        public async Task<Translation> GetByNarrationIdAndLang(int narrationId, string languageCode)
-        {
-            return await _db.Translations
+        public async Task<Translation?> GetByNarrationIdAndLang(int narrationId, string languageCode)
+            => await _db.Translations
                 .FirstOrDefaultAsync(t => t.NarrationId == narrationId && t.LanguageCode == languageCode);
-        }
 
         public async Task<IEnumerable<Translation>> GetByNarrationId(int narrationId)
-        {
-            return await _db.Translations
+            => await _db.Translations
                 .Where(t => t.NarrationId == narrationId)
                 .ToListAsync();
-        }
 
-        public async Task<Translation> GetById(int id)
-        {
-            return await _db.Translations.FindAsync(id);
-        }
+        public async Task<Translation?> GetById(int id)
+            => await _db.Translations.FindAsync(id);
 
-        public async Task<Translation> Create(Translation translation)
+        public async Task<Translation> Create(Translation t)
         {
-            translation.CreatedAt = System.DateTime.UtcNow;
-            translation.UpdatedAt = System.DateTime.UtcNow;
-            _db.Translations.Add(translation);
+            _db.Translations.Add(t);
             await _db.SaveChangesAsync();
-            return translation;
+            return t;
         }
 
-        public async Task<Translation> Update(Translation translation)
+        public async Task<Translation> Update(Translation t)
         {
-            translation.UpdatedAt = System.DateTime.UtcNow;
-            _db.Translations.Update(translation);
+            _db.Translations.Update(t);
             await _db.SaveChangesAsync();
-            return translation;
+            return t;
         }
 
         public async Task<bool> Delete(int id)
         {
-            var translation = await _db.Translations.FindAsync(id);
-            if (translation == null) return false;
-
-            _db.Translations.Remove(translation);
+            var t = await _db.Translations.FindAsync(id);
+            if (t == null) return false;
+            _db.Translations.Remove(t);
             await _db.SaveChangesAsync();
             return true;
         }

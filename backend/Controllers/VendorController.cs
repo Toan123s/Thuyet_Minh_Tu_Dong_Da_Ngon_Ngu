@@ -1,11 +1,13 @@
 // VendorController.cs
 using Microsoft.AspNetCore.Mvc;
 using backend.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace backend.Controllers;
 
 [ApiController]
 [Route("api/vendor")]
+[Authorize]
 public class VendorController : ControllerBase
 {
     private readonly VendorService _service;
@@ -38,7 +40,19 @@ public class VendorController : ControllerBase
         catch (KeyNotFoundException ex)        { return NotFound(new { message = ex.Message }); }
     }
 
-    // GET /api/vendor/booths
+    // GET /api/vendor/booth — trả 1 booth đầu tiên (VendorBoothGate dùng)
+    [HttpGet("booth")]
+    public async Task<IActionResult> GetMyBooth()
+    {
+        try
+        {
+            return Ok(await _service.GetMyBoothAsync(GetAccountId()));
+        }
+        catch (UnauthorizedAccessException ex) { return Unauthorized(new { message = ex.Message }); }
+        catch (KeyNotFoundException ex)        { return NotFound(new { message = ex.Message }); }
+    }
+
+    // GET /api/vendor/booths — trả list tất cả booth
     [HttpGet("booths")]
     public async Task<IActionResult> GetMyBooths()
     {

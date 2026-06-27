@@ -8,6 +8,7 @@ function getToken() {
 
 const vendorService = {
   getMe:         () => apiClient.get("/vendor/me"),
+  getMyBooth:    () => apiClient.get("/vendor/booth"),
   getMyBooths:   () => apiClient.get("/vendor/booths"),
   getStatsToday: () => apiClient.get("/vendor/stats/today"),
 

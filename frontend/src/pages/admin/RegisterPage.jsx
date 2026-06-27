@@ -101,106 +101,106 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="rp-page">
+    <div className="reg-page">
       <Toast toasts={toasts} />
 
-      <div className="rp-card">
+      <div className="reg-card">
         {/* Brand */}
-        <div className="rp-brand">
-          <div className="rp-brand__icon">🏪</div>
-          <h1 className="rp-brand__title">Đăng Ký Vendor</h1>
-          <p className="rp-brand__sub">AutoNarration — Hệ thống thuyết minh tự động</p>
+        <div className="reg-brand">
+          <div className="reg-brand__icon">🏪</div>
+          <h1 className="reg-brand__title">Đăng Ký Vendor</h1>
+          <p className="reg-brand__sub">AutoNarration — Hệ thống thuyết minh tự động</p>
         </div>
 
         {/* Steps */}
-        <div className="rp-steps">
-          <div className="rp-step">
-            <div className={`rp-step__circle ${step >= 1 ? (step > 1 ? "rp-step__circle--done" : "rp-step__circle--active") : ""}`}>
+        <div className="reg-steps">
+          <div className="reg-step">
+            <div className={`reg-step__circle ${step >= 1 ? (step > 1 ? "reg-step__circle--done" : "reg-step__circle--active") : ""}`}>
               {step > 1 ? "✓" : "1"}
             </div>
-            <span className="rp-step__label">Thông tin</span>
+            <span className="reg-step__label">Thông tin</span>
           </div>
-          <div className={`rp-step__line ${step > 1 ? "rp-step__line--done" : ""}`} />
-          <div className="rp-step">
-            <div className={`rp-step__circle ${step >= 2 ? "rp-step__circle--active" : ""}`}>
+          <div className={`reg-step__line ${step > 1 ? "reg-step__line--done" : ""}`} />
+          <div className="reg-step">
+            <div className={`reg-step__circle ${step >= 2 ? "reg-step__circle--active" : ""}`}>
               2
             </div>
-            <span className="rp-step__label">Thanh toán</span>
+            <span className="reg-step__label">Thanh toán</span>
           </div>
         </div>
 
         {/* Step 1: Form */}
         {step === 1 && (
           <form onSubmit={handleRegister}>
-            {error && <div className="rp-error">⚠️ {error}</div>}
+            {error && <div className="reg-error">⚠️ {error}</div>}
 
-            <p className="rp-section-title">🏢 Thông tin công ty</p>
+            <p className="reg-section-title">🏢 Thông tin công ty</p>
 
-            <div className="rp-field">
+            <div className="reg-field">
               <label>Tên công ty *</label>
               <input name="companyName" value={form.companyName}
                 onChange={handleChange} placeholder="VD: Công ty TNHH ABC"
                 className={errors.companyName ? "error" : ""} />
-              {errors.companyName && <p className="rp-field__err">{errors.companyName}</p>}
+              {errors.companyName && <p className="reg-field__err">{errors.companyName}</p>}
             </div>
 
-            <div className="rp-row">
-              <div className="rp-field">
+            <div className="reg-row">
+              <div className="reg-field">
                 <label>Người đại diện *</label>
                 <input name="representativeName" value={form.representativeName}
                   onChange={handleChange} placeholder="Họ và tên"
                   className={errors.representativeName ? "error" : ""} />
-                {errors.representativeName && <p className="rp-field__err">{errors.representativeName}</p>}
+                {errors.representativeName && <p className="reg-field__err">{errors.representativeName}</p>}
               </div>
-              <div className="rp-field">
+              <div className="reg-field">
                 <label>Số điện thoại *</label>
                 <input name="phoneNumber" value={form.phoneNumber}
                   onChange={handleChange} placeholder="0901234567"
                   className={errors.phoneNumber ? "error" : ""} />
-                {errors.phoneNumber && <p className="rp-field__err">{errors.phoneNumber}</p>}
+                {errors.phoneNumber && <p className="reg-field__err">{errors.phoneNumber}</p>}
               </div>
             </div>
 
-            <p className="rp-section-title">👤 Tài khoản đăng nhập</p>
+            <p className="reg-section-title">👤 Tài khoản đăng nhập</p>
 
-            <div className="rp-field">
+            <div className="reg-field">
               <label>Email *</label>
               <input name="email" type="email" value={form.email}
                 onChange={handleChange} placeholder="email@company.com"
                 className={errors.email ? "error" : ""} />
-              {errors.email && <p className="rp-field__err">{errors.email}</p>}
+              {errors.email && <p className="reg-field__err">{errors.email}</p>}
             </div>
 
-            <div className="rp-field">
+            <div className="reg-field">
               <label>Tên đăng nhập *</label>
               <input name="username" value={form.username}
                 onChange={handleChange} placeholder="username"
                 className={errors.username ? "error" : ""} />
-              {errors.username && <p className="rp-field__err">{errors.username}</p>}
+              {errors.username && <p className="reg-field__err">{errors.username}</p>}
             </div>
 
-            <div className="rp-row">
-              <div className="rp-field">
+            <div className="reg-row">
+              <div className="reg-field">
                 <label>Mật khẩu *</label>
                 <input name="password" type="password" value={form.password}
                   onChange={handleChange} placeholder="Tối thiểu 6 ký tự"
                   className={errors.password ? "error" : ""} />
-                {errors.password && <p className="rp-field__err">{errors.password}</p>}
+                {errors.password && <p className="reg-field__err">{errors.password}</p>}
               </div>
-              <div className="rp-field">
+              <div className="reg-field">
                 <label>Xác nhận mật khẩu *</label>
                 <input name="confirmPassword" type="password" value={form.confirmPassword}
                   onChange={handleChange} placeholder="Nhập lại mật khẩu"
                   className={errors.confirmPassword ? "error" : ""} />
-                {errors.confirmPassword && <p className="rp-field__err">{errors.confirmPassword}</p>}
+                {errors.confirmPassword && <p className="reg-field__err">{errors.confirmPassword}</p>}
               </div>
             </div>
 
-            <button type="submit" className="rp-btn-primary" disabled={loading}>
+            <button type="submit" className="reg-btn-primary" disabled={loading}>
               {loading ? "Đang xử lý..." : "Tiếp tục →"}
             </button>
 
-            <div className="rp-login-link">
+            <div className="reg-login-link">
               Đã có tài khoản?{" "}
               <button type="button" onClick={() => navigate("/login")}>Đăng nhập</button>
             </div>
@@ -210,32 +210,32 @@ export default function RegisterPage() {
 
       {/* Payment Modal — hiện khi step === 2 */}
       {step === 2 && (
-        <div className="rp-modal-overlay">
-          <div className="rp-modal">
-            <div className="rp-modal__header">
-              <div className="rp-modal__icon">💳</div>
-              <h3 className="rp-modal__title">Thanh Toán Phí Địa Điểm</h3>
-              <p className="rp-modal__sub">
+        <div className="reg-modal-overlay">
+          <div className="reg-modal">
+            <div className="reg-modal__header">
+              <div className="reg-modal__icon">💳</div>
+              <h3 className="reg-modal__title">Thanh Toán Phí Địa Điểm</h3>
+              <p className="reg-modal__sub">
                 Hoàn tất thanh toán để kích hoạt tài khoản vendor và sử dụng toàn bộ tính năng
               </p>
             </div>
 
-            <div className="rp-modal__qr">
+            <div className="reg-modal__qr">
               <img src={QR_URL} alt="VietQR" />
             </div>
 
-            <div className="rp-modal__info">
+            <div className="reg-modal__info">
               <div>Ngân hàng: <b>MB Bank</b></div>
               <div>Số TK: <b>1234567899999</b></div>
               <div>Nội dung: <b>Phi Vendor {form.companyName}</b></div>
               <div>Số tiền: <b>{FEE}</b></div>
             </div>
 
-            <button className="rp-modal__btn" onClick={handleConfirmPayment} disabled={payLoading}>
+            <button className="reg-modal__btn" onClick={handleConfirmPayment} disabled={payLoading}>
               {payLoading ? "Đang xác nhận..." : "✅ Tôi đã chuyển khoản thành công"}
             </button>
 
-            <button className="rp-modal__skip" onClick={() => navigate("/login")}>
+            <button className="reg-modal__skip" onClick={() => navigate("/login")}>
               Thanh toán sau → Đăng nhập
             </button>
           </div>

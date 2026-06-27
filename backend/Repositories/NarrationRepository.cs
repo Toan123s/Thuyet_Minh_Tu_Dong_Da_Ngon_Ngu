@@ -9,24 +9,17 @@ namespace backend.Repositories
     {
         private readonly AppDbContext _db;
 
-        public NarrationRepository(AppDbContext db)
-        {
-            _db = db;
-        }
+        public NarrationRepository(AppDbContext db) { _db = db; }
 
-        public async Task<Narration> GetByBoothId(int boothId)
-        {
-            return await _db.Narrations
+        public async Task<Narration?> GetByBoothId(int boothId)
+            => await _db.Narrations
                 .Include(n => n.Translations)
                 .FirstOrDefaultAsync(n => n.BoothId == boothId);
-        }
 
-        public async Task<Narration> GetById(int id)
-        {
-            return await _db.Narrations
+        public async Task<Narration?> GetById(int id)
+            => await _db.Narrations
                 .Include(n => n.Translations)
                 .FirstOrDefaultAsync(n => n.Id == id);
-        }
 
         public async Task<Narration> Create(Narration narration)
         {
@@ -46,7 +39,6 @@ namespace backend.Repositories
         {
             var narration = await _db.Narrations.FindAsync(id);
             if (narration == null) return false;
-
             _db.Narrations.Remove(narration);
             await _db.SaveChangesAsync();
             return true;

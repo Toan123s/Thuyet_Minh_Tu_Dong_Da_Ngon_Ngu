@@ -7,252 +7,205 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-    public DbSet<Account> Accounts { get; set; }
-    public DbSet<Vendor> Vendors { get; set; }
-    public DbSet<Event> Events { get; set; }
-    public DbSet<Booth> Booths { get; set; }
-    public DbSet<Category> Categories { get; set; }
-    public DbSet<Narration> Narrations { get; set; }
-    public DbSet<Translation> Translations { get; set; }
-    public DbSet<Image> Images { get; set; }
-    public DbSet<Video> Videos { get; set; }
-    public DbSet<VisitLog> VisitLogs { get; set; }
-    public DbSet<BoothRequestModel> BoothRequests { get; set; }
+    public DbSet<Account>          Accounts      { get; set; }
+    public DbSet<Vendor>           Vendors       { get; set; }
+    public DbSet<Event>            Events        { get; set; }
+    public DbSet<Booth>            Booths        { get; set; }
+    public DbSet<Category>         Categories    { get; set; }
+    public DbSet<Narration>        Narrations    { get; set; }
+    public DbSet<Translation>      Translations  { get; set; }
+    public DbSet<Image>            Images        { get; set; }
+    public DbSet<Video>            Videos        { get; set; }
+    public DbSet<VisitLog>         VisitLogs     { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // ===== ACCOUNT =====
-        modelBuilder.Entity<Account>(entity =>
+        // ── ACCOUNT ─────────────────────────────────────────────────
+        modelBuilder.Entity<Account>(e =>
         {
-            entity.ToTable("ACCOUNT");
-            entity.HasKey(e => e.Id);
+            e.ToTable("ACCOUNT");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("AccountID");
+            e.Property(x => x.Username).HasColumnName("Username");
+            e.Property(x => x.PasswordHash).HasColumnName("PasswordHash");
+            e.Property(x => x.Email).HasColumnName("Email");
+            e.Property(x => x.Role).HasColumnName("Role");
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedAt");
+            e.Property(x => x.IsActive).HasColumnName("Status");
 
-            entity.Property(e => e.Id).HasColumnName("AccountID");
-            entity.Property(e => e.Username).HasColumnName("Username");
-            entity.Property(e => e.PasswordHash).HasColumnName("PasswordHash");
-            entity.Property(e => e.Email).HasColumnName("Email");
-            entity.Property(e => e.Role).HasColumnName("Role");
-            entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt");
-            entity.Property(e => e.IsActive).HasColumnName("Status");
-
-            // 1-1 với Vendor: Account là principal, Vendor là dependent (giữ AccountID làm FK)
-            entity.HasOne(e => e.Vendor)
-                  .WithOne(v => v.Account)
-                  .HasForeignKey<Vendor>(v => v.AccountId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Vendor)
+             .WithOne(v => v.Account)
+             .HasForeignKey<Vendor>(v => v.AccountId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ===== VENDOR =====
-        modelBuilder.Entity<Vendor>(entity =>
+        // ── VENDOR ──────────────────────────────────────────────────
+        modelBuilder.Entity<Vendor>(e =>
         {
-            entity.ToTable("VENDOR");
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id).HasColumnName("VendorID");
-            entity.Property(e => e.AccountId).HasColumnName("AccountID");
-            entity.Property(e => e.CompanyName).HasColumnName("CompanyName");
-            entity.Property(e => e.RepresentativeName).HasColumnName("RepresentativeName");
-            entity.Property(e => e.PhoneNumber).HasColumnName("PhoneNumber");
-            entity.Property(e => e.Description).HasColumnName("Description");
-            entity.Property(e => e.IsPaid).HasColumnName("IsPaid");
-            entity.Property(e => e.PaidAt).HasColumnName("PaidAt");
-            entity.Property(e => e.EventId).HasColumnName("EventId");
+            e.ToTable("VENDOR");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("VendorID");
+            e.Property(x => x.AccountId).HasColumnName("AccountID");
+            e.Property(x => x.CompanyName).HasColumnName("CompanyName");
+            e.Property(x => x.RepresentativeName).HasColumnName("RepresentativeName");
+            e.Property(x => x.PhoneNumber).HasColumnName("PhoneNumber");
+            e.Property(x => x.Description).HasColumnName("Description");
+            e.Property(x => x.IsPaid).HasColumnName("IsPaid");
+            e.Property(x => x.PaidAt).HasColumnName("PaidAt");
+            e.Property(x => x.EventId).HasColumnName("EventId");
         });
 
-        // ===== EVENT =====
-        modelBuilder.Entity<Event>(entity =>
+        // ── EVENT ───────────────────────────────────────────────────
+        modelBuilder.Entity<Event>(e =>
         {
-            entity.ToTable("EVENT");
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id).HasColumnName("EventID");
-            entity.Property(e => e.Name).HasColumnName("EventName");
-            entity.Property(e => e.Description).HasColumnName("Description");
-            entity.Property(e => e.Location).HasColumnName("Location");
-            entity.Property(e => e.StartDate).HasColumnName("StartDate");
-            entity.Property(e => e.EndDate).HasColumnName("EndDate");
-            entity.Property(e => e.LogoUrl).HasColumnName("LogoUrl");
-            entity.Property(e => e.QRCodeUrl).HasColumnName("QRCodeUrl");
-            entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt");
+            e.ToTable("EVENT");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("EventID");
+            e.Property(x => x.Name).HasColumnName("EventName");
+            e.Property(x => x.Description).HasColumnName("Description");
+            e.Property(x => x.Location).HasColumnName("Location");
+            e.Property(x => x.StartDate).HasColumnName("StartDate");
+            e.Property(x => x.EndDate).HasColumnName("EndDate");
+            e.Property(x => x.LogoUrl).HasColumnName("LogoUrl");
+            e.Property(x => x.QRCodeUrl).HasColumnName("QRCodeUrl");
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedAt");
         });
 
-        // ===== BOOTH =====
-        modelBuilder.Entity<Booth>(entity =>
+        // ── BOOTH ───────────────────────────────────────────────────
+        modelBuilder.Entity<Booth>(e =>
         {
-            entity.ToTable("BOOTH");
-            entity.HasKey(e => e.Id);
+            e.ToTable("BOOTH");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("BoothID");
+            e.Property(x => x.EventId).HasColumnName("EventID");
+            e.Property(x => x.VendorId).HasColumnName("VendorID");
+            e.Property(x => x.CategoryId).HasColumnName("CategoryID");
+            e.Property(x => x.BoothName).HasColumnName("BoothName");
+            e.Property(x => x.Description).HasColumnName("Description");
+            e.Property(x => x.Latitude).HasColumnName("Latitude").HasColumnType("decimal(10,7)");
+            e.Property(x => x.Longitude).HasColumnName("Longitude").HasColumnType("decimal(10,7)");
+            e.Property(x => x.Radius).HasColumnName("Radius").HasColumnType("decimal(10,2)");
+            e.Property(x => x.IsActive).HasColumnName("IsActive");
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedAt");
 
-            entity.Property(e => e.Id).HasColumnName("BoothID");
-            entity.Property(e => e.EventId).HasColumnName("EventID");
-            entity.Property(e => e.VendorId).HasColumnName("VendorID");
-            entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
-            entity.Property(e => e.BoothName).HasColumnName("BoothName");
-            entity.Property(e => e.Description).HasColumnName("Description");
-            entity.Property(e => e.Latitude).HasColumnName("Latitude").HasColumnType("decimal(10,7)");
-            entity.Property(e => e.Longitude).HasColumnName("Longitude").HasColumnType("decimal(10,7)");
-            entity.Property(e => e.Radius).HasColumnName("Radius").HasColumnType("decimal(10,2)");
-            entity.Property(e => e.IsActive).HasColumnName("IsActive");
-            entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt");
+            e.HasOne(x => x.Event)
+             .WithMany(ev => ev.Booths)
+             .HasForeignKey(x => x.EventId)
+             .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasOne(e => e.Event)
-                  .WithMany(ev => ev.Booths)
-                  .HasForeignKey(e => e.EventId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Vendor)
+             .WithMany(v => v.Booths)
+             .HasForeignKey(x => x.VendorId)
+             .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne(e => e.Vendor)
-                  .WithMany(v => v.Booths)
-                  .HasForeignKey(e => e.VendorId)
-                  .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Category)
+             .WithMany(c => c.Booths)
+             .HasForeignKey(x => x.CategoryId)
+             .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasOne(e => e.Category)
-                  .WithMany(c => c.Booths)
-                  .HasForeignKey(e => e.CategoryId)
-                  .OnDelete(DeleteBehavior.SetNull);
-
-            // 1-1 với Narration: Booth là principal, Narration là dependent (BoothID là FK)
-            entity.HasOne(e => e.Narration)
-                  .WithOne(n => n.Booth)
-                  .HasForeignKey<Narration>(n => n.BoothId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            // 1-1 Booth ↔ Narration
+            e.HasOne(x => x.Narration)
+             .WithOne(n => n.Booth)
+             .HasForeignKey<Narration>(n => n.BoothId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ===== CATEGORY =====
-        modelBuilder.Entity<Category>(entity =>
+        // ── CATEGORY ────────────────────────────────────────────────
+        modelBuilder.Entity<Category>(e =>
         {
-            entity.ToTable("CATEGORY");
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id).HasColumnName("CategoryID");
-            entity.Property(e => e.Name).HasColumnName("CategoryName");
-            entity.Property(e => e.Description).HasColumnName("Description");
+            e.ToTable("CATEGORY");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("CategoryID");
+            e.Property(x => x.Name).HasColumnName("CategoryName");
+            e.Property(x => x.Description).HasColumnName("Description");
         });
 
-        // ===== NARRATION =====
-        modelBuilder.Entity<Narration>(entity =>
+        // ── NARRATION ───────────────────────────────────────────────
+        modelBuilder.Entity<Narration>(e =>
         {
-            entity.ToTable("NARRATION");
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id).HasColumnName("NarrationID");
-            entity.Property(e => e.BoothId).HasColumnName("BoothID");
-            entity.Property(e => e.Title).HasColumnName("Title").HasMaxLength(200);
-            entity.Property(e => e.Content).HasColumnName("Content").IsRequired();
-            entity.Property(e => e.UpdatedAt).HasColumnName("UpdatedAt").IsRequired();
+            e.ToTable("NARRATION");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("NarrationID");
+            e.Property(x => x.BoothId).HasColumnName("BoothID");
+            e.Property(x => x.Title).HasColumnName("Title").HasMaxLength(200);
+            e.Property(x => x.Content).HasColumnName("Content").IsRequired();
+            e.Property(x => x.UpdatedAt).HasColumnName("UpdatedAt").IsRequired();
         });
 
-        // ===== TRANSLATION =====
-        modelBuilder.Entity<Translation>(entity =>
+        // ── TRANSLATION ─────────────────────────────────────────────
+        modelBuilder.Entity<Translation>(e =>
         {
-            entity.ToTable("TRANSLATION");
-            entity.HasKey(e => e.Id);
+            e.ToTable("TRANSLATION");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("TranslationID");
+            e.Property(x => x.NarrationId).HasColumnName("NarrationID");
+            e.Property(x => x.LanguageCode).HasColumnName("LanguageCode").IsRequired().HasMaxLength(10);
+            e.Property(x => x.Title).HasColumnName("Title").HasMaxLength(200);
+            e.Property(x => x.Content).HasColumnName("Content").IsRequired();
+            e.Property(x => x.IsEdited).HasColumnName("IsEdited").IsRequired();
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedAt").IsRequired();
+            e.Property(x => x.UpdatedAt).HasColumnName("UpdatedAt").IsRequired();
 
-            entity.Property(e => e.Id).HasColumnName("TranslationID");
-            entity.Property(e => e.NarrationId).HasColumnName("NarrationID");
-            entity.Property(e => e.LanguageCode).HasColumnName("LanguageCode").IsRequired().HasMaxLength(10);
-            entity.Property(e => e.Title).HasColumnName("Title").HasMaxLength(200);
-            entity.Property(e => e.Content).HasColumnName("Content").IsRequired();
-            entity.Property(e => e.IsEdited).HasColumnName("IsEdited").IsRequired();
-            entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt").IsRequired();
-            entity.Property(e => e.UpdatedAt).HasColumnName("UpdatedAt").IsRequired();
-
-            entity.HasOne(e => e.Narration)
-                  .WithMany(n => n.Translations)
-                  .HasForeignKey(e => e.NarrationId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Narration)
+             .WithMany(n => n.Translations)
+             .HasForeignKey(x => x.NarrationId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ===== IMAGE =====
-        modelBuilder.Entity<Image>(entity =>
+        // ── IMAGE ───────────────────────────────────────────────────
+        modelBuilder.Entity<Image>(e =>
         {
-            entity.ToTable("IMAGE");
-            entity.HasKey(e => e.Id);
+            e.ToTable("IMAGE");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("ImageID");
+            e.Property(x => x.BoothId).HasColumnName("BoothID");
+            e.Property(x => x.FilePath).HasColumnName("FilePath").IsRequired().HasMaxLength(500);
+            e.Property(x => x.Caption).HasColumnName("Caption").HasMaxLength(200);
+            e.Property(x => x.SortOrder).HasColumnName("SortOrder").IsRequired();
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedAt").IsRequired();
 
-            entity.Property(e => e.Id).HasColumnName("ImageID");
-            entity.Property(e => e.BoothId).HasColumnName("BoothID");
-            entity.Property(e => e.FilePath).HasColumnName("FilePath").IsRequired().HasMaxLength(500);
-            entity.Property(e => e.Caption).HasColumnName("Caption").HasMaxLength(200);
-            entity.Property(e => e.SortOrder).HasColumnName("SortOrder").IsRequired();
-            entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt").IsRequired();
-
-            entity.HasOne(e => e.Booth)
-                  .WithMany(b => b.Images)
-                  .HasForeignKey(e => e.BoothId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Booth)
+             .WithMany(b => b.Images)
+             .HasForeignKey(x => x.BoothId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ===== VIDEO =====
-        modelBuilder.Entity<Video>(entity =>
+        // ── VIDEO ───────────────────────────────────────────────────
+        modelBuilder.Entity<Video>(e =>
         {
-            entity.ToTable("VIDEO");
-            entity.HasKey(e => e.Id);
+            e.ToTable("VIDEO");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("VideoID");
+            e.Property(x => x.BoothId).HasColumnName("BoothID");
+            e.Property(x => x.VideoUrl).HasColumnName("VideoUrl").IsRequired().HasMaxLength(500);
+            e.Property(x => x.Title).HasColumnName("Title").HasMaxLength(200);
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedAt").IsRequired();
 
-            entity.Property(e => e.Id).HasColumnName("VideoID");
-            entity.Property(e => e.BoothId).HasColumnName("BoothID");
-            entity.Property(e => e.VideoUrl).HasColumnName("VideoUrl").IsRequired().HasMaxLength(500);
-            entity.Property(e => e.Title).HasColumnName("Title").HasMaxLength(200);
-            entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt").IsRequired();
-
-            entity.HasOne(e => e.Booth)
-                  .WithMany(b => b.Videos)
-                  .HasForeignKey(e => e.BoothId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Booth)
+             .WithMany(b => b.Videos)
+             .HasForeignKey(x => x.BoothId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ===== VISIT LOG =====
-        modelBuilder.Entity<VisitLog>(entity =>
+        // ── VISIT LOG ───────────────────────────────────────────────
+        modelBuilder.Entity<VisitLog>(e =>
         {
-            entity.ToTable("VISIT_LOG");
-            entity.HasKey(e => e.Id);
+            e.ToTable("VISIT_LOG");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("VisitLogID");
+            e.Property(x => x.BoothId).HasColumnName("BoothID");
+            e.Property(x => x.LanguageCode).HasColumnName("LanguageCode").IsRequired().HasMaxLength(10);
+            e.Property(x => x.DeviceType).HasColumnName("DeviceType").IsRequired().HasMaxLength(20);
+            e.Property(x => x.Duration).HasColumnName("Duration").IsRequired();
+            e.Property(x => x.VisitedAt).HasColumnName("VisitedAt").IsRequired();
 
-            entity.Property(e => e.Id).HasColumnName("VisitLogID");
-            entity.Property(e => e.BoothId).HasColumnName("BoothID");
-            entity.Property(e => e.LanguageCode).HasColumnName("LanguageCode").IsRequired().HasMaxLength(10);
-            entity.Property(e => e.DeviceType).HasColumnName("DeviceType").IsRequired().HasMaxLength(20);
-            entity.Property(e => e.Duration).HasColumnName("Duration").IsRequired();
-            entity.Property(e => e.VisitedAt).HasColumnName("VisitedAt").IsRequired();
-
-            entity.HasOne(e => e.Booth)
-                  .WithMany(b => b.VisitLogs)
-                  .HasForeignKey(e => e.BoothId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Booth)
+             .WithMany(b => b.VisitLogs)
+             .HasForeignKey(x => x.BoothId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ===== BOOTH REQUEST =====
-        modelBuilder.Entity<BoothRequestModel>(entity =>
-        {
-            entity.ToTable("BOOTH_REQUEST");
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id).HasColumnName("BoothRequestID");
-            entity.Property(e => e.AccountId).HasColumnName("AccountID");
-            entity.Property(e => e.CategoryId).HasColumnName("CategoryID");
-            entity.Property(e => e.EventId).HasColumnName("EventID");
-            entity.Property(e => e.BoothName).HasColumnName("BoothName").IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Description).HasColumnName("Description").HasMaxLength(1000);
-            entity.Property(e => e.Latitude).HasColumnName("Latitude").HasColumnType("decimal(10,7)");
-            entity.Property(e => e.Longitude).HasColumnName("Longitude").HasColumnType("decimal(10,7)");
-            entity.Property(e => e.Radius).HasColumnName("Radius").HasColumnType("decimal(10,2)");
-            entity.Property(e => e.Status).HasColumnName("Status").IsRequired().HasMaxLength(20);
-            entity.Property(e => e.AdminNote).HasColumnName("AdminNote").HasMaxLength(500);
-            entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt").IsRequired();
-            entity.Property(e => e.ReviewedAt).HasColumnName("ReviewedAt");
-
-            entity.HasOne(e => e.Account)
-                  .WithMany()
-                  .HasForeignKey(e => e.AccountId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.Category)
-                  .WithMany()
-                  .HasForeignKey(e => e.CategoryId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.Event)
-                  .WithMany(e => e.BoothRequests)
-                  .HasForeignKey(e => e.EventId)
-                  .OnDelete(DeleteBehavior.SetNull);
-        });
     }
 }

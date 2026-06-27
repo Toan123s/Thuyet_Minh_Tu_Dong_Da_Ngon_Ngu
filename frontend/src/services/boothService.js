@@ -33,9 +33,26 @@ const boothService = {
     // Xóa booth
     delete: (id) => api.delete(`/booths/${id}`),
 
-    // Tìm booth gần nhất
-    findNearest: (eventId, latitude, longitude, radius = 15) =>
-        api.post('/booths/nearest', { eventId, latitude, longitude, radius }),
+    // Tìm booth gần nhất — hỗ trợ 2 cách gọi:
+    //   boothService.findNearest(eventId, lat, lng)        — useGeofence
+    //   boothService.findNearest({ lat, lng, eventId })    — LocationPage
+    findNearest: (eventIdOrObj, latitude, longitude, radius = 15) => {
+        let eventId, lat, lng;
+        if (typeof eventIdOrObj === 'object' && eventIdOrObj !== null) {
+            // Gọi dạng object: { lat, lng, eventId }
+            ({ eventId, lat, lng } = eventIdOrObj);
+            latitude  = lat;
+            longitude = lng;
+        } else {
+            eventId = eventIdOrObj;
+        }
+        return api.post('/booths/nearest', {
+            eventId:   Number(eventId),
+            latitude:  Number(latitude),
+            longitude: Number(longitude),
+            radius,
+        });
+    },
 };
 
 export default boothService;

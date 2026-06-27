@@ -17,10 +17,10 @@ import VendorDashboardPage from "../pages/vendor/VendorDashboardPage";
 import NarrationPage       from "../pages/vendor/NarrationPage";
 import MediaPage           from "../pages/vendor/MediaPage";
 import StatisticPage       from "../pages/vendor/StatisticPage";
+import VendorBoothGate     from "../components/VendorBoothGate/VendorBoothGate";
 
 // ── Visitor pages ─────────────────────────────────────────────
 import LandingPage  from "../pages/visitor/LandingPage";
-import PaymentPage  from "../pages/visitor/PaymentPage";
 import LocationPage from "../pages/visitor/LocationPage";
 import MapPage      from "../pages/visitor/MapPage";
 import BoothPage    from "../pages/visitor/BoothPage";
@@ -41,9 +41,8 @@ export default function AppRouter() {
 
       <Routes>
 
-        {/* ── Visitor (không cần đăng nhập) ───────────────── */}
+        {/* ── Visitor (không cần đăng nhập, không cần thanh toán) ── */}
         <Route path="/"          element={<LandingPage />} />
-        <Route path="/payment"   element={<PaymentPage />} />
         <Route path="/location"  element={<LocationPage />} />
         <Route path="/map"       element={<MapPage />} />
         <Route path="/booth/:id" element={<BoothPage />} />
@@ -95,6 +94,23 @@ export default function AppRouter() {
             <VendorPaywall>
               <VendorDashboardPage />
             </VendorPaywall>
+          </ProtectedRoute>
+        } />
+        {/* Sidebar không biết trước boothId -> route này tự tìm booth của
+            vendor đang đăng nhập rồi chuyển vào đúng trang có id */}
+        <Route path="/vendor/narrations" element={
+          <ProtectedRoute allowedRoles={["Vendor"]}>
+            <VendorPaywall><VendorBoothGate target="narrations" /></VendorPaywall>
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/media" element={
+          <ProtectedRoute allowedRoles={["Vendor"]}>
+            <VendorPaywall><VendorBoothGate target="media" /></VendorPaywall>
+          </ProtectedRoute>
+        } />
+        <Route path="/vendor/stats" element={
+          <ProtectedRoute allowedRoles={["Vendor"]}>
+            <VendorPaywall><VendorBoothGate target="stats" /></VendorPaywall>
           </ProtectedRoute>
         } />
         <Route path="/vendor/narrations/:boothId" element={

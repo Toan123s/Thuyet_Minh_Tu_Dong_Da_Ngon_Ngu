@@ -7,7 +7,7 @@ import './LandingPage.css';  // 🔥 IMPORT CSS
 
 const LandingPage = () => {
     const [searchParams] = useSearchParams();
-    const eventId = searchParams.get('event');
+    const eventId = searchParams.get('event') || '1'; // TODO: bỏ || '1' khi dùng QR thật
     
     const navigate = useNavigate();
     const [eventData, setEventData] = useState(null);
@@ -21,11 +21,6 @@ const LandingPage = () => {
     const scannedEventIdRef = useRef(null);
 
     const fetchEvent = useCallback(async () => {
-        if (!eventId) {
-            setLoading(false);
-            setError('Không tìm thấy mã sự kiện! Vui lòng quét QR.');
-            return;
-        }
         
         try {
             setLoading(true);

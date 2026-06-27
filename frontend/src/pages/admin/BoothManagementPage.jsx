@@ -2,23 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/Layout/Layout";
 import ConfirmDialog from "../../components/ConfirmDialog/ConfirmDialog";
 import GoogleMap from "../../components/GoogleMap/GoogleMap";
-import QRCodeGenerator from "../../components/QRCodeGenerator/QRCodeGenerator";
 import StatCard from "../../components/StatCard/StatCard";
 import { useToast } from "../../components/Toast/Toast";
 import Toast from "../../components/Toast/Toast";
 import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
 import boothService from "../../services/boothService";
 import eventService from "../../services/eventService";
+import accountService from "../../services/accountService";
+import categoryService from "../../services/categoryService";
 import "./BoothManagementPage.css";
 
 // ─── Constants ────────────────────────────────────────────────
-const CATEGORIES = [
-  { id: 1, name: "AI & Robotics" },
-  { id: 2, name: "Software" },
-  { id: 3, name: "Y tế" },
-  { id: 4, name: "Giáo dục" },
-  { id: 5, name: "Fintech" },
-];
+// Danh mục được quản lý động trong database (bảng Categories),
+// không còn hardcode ở đây — xem useEffect load categories bên dưới.
 
 const DEFAULT_FORM = {
   eventId: "",
@@ -38,7 +34,7 @@ function CoordBadge({ lat, lng }) {
 }
 
 // ─── BoothRow ─────────────────────────────────────────────────
-function BoothRow({ booth, onEdit, onDelete, onViewQR }) {
+function BoothRow({ booth, onEdit, onDelete }) {
   return (
     <tr className="booth-row">
       <td className="booth-row__name">
@@ -49,7 +45,6 @@ function BoothRow({ booth, onEdit, onDelete, onViewQR }) {
       <td><CoordBadge lat={booth.latitude} lng={booth.longitude} /></td>
       <td className="booth-row__vendor">{booth.vendorName}</td>
       <td className="booth-row__actions">
-        <button className="action-btn action-btn--qr"     onClick={() => onViewQR(booth)}  title="Xem QR Code">QR</button>
         <button className="action-btn action-btn--edit"   onClick={() => onEdit(booth)}    title="Chỉnh sửa">✏️</button>
         <button className="action-btn action-btn--delete" onClick={() => onDelete(booth)}  title="Xóa">🗑️</button>
       </td>
@@ -58,7 +53,7 @@ function BoothRow({ booth, onEdit, onDelete, onViewQR }) {
 }
 
 // ─── BoothForm ────────────────────────────────────────────────
-function BoothForm({ initial, events, vendors, onSave, onCancel, loading }) {
+function BoothForm({ initial, events, vendors, categories, onSave, onCancel, loading }) {
   const [form, setForm]     = useState(initial || DEFAULT_FORM);
   const [showMap, setShowMap] = useState(false);
   const [errors, setErrors]   = useState({});
@@ -129,7 +124,7 @@ function BoothForm({ initial, events, vendors, onSave, onCancel, loading }) {
         <select value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)}
           className={errors.categoryId ? "input--error" : ""}>
           <option value="">-- Chọn danh mục --</option>
-          {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {errors.categoryId && <p className="form-error">{errors.categoryId}</p>}
       </div>
@@ -224,6 +219,7 @@ export default function BoothManagementPage() {
   const [booths,  setBooths]  = useState([]);
   const [events,  setEvents]  = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
 
@@ -237,7 +233,6 @@ export default function BoothManagementPage() {
   // UI mode
   const [mode, setMode] = useState("list"); // "list" | "form" | "qr"
   const [editingBooth, setEditingBooth] = useState(null);
-  const [qrBooth,      setQrBooth]      = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Stats
@@ -261,23 +256,30 @@ export default function BoothManagementPage() {
     }
   }, [filterEvent, filterCategory, search, page]); // eslint-disable-line
 
-  // ── Fetch events + vendors once ────────────────────────────
+  // ── Fetch events + vendors + categories once ────────────────
   useEffect(() => {
     (async () => {
       try {
-        const [evList, vendorList] = await Promise.all([
+        const [evList, vendorRes, catList] = await Promise.all([
           eventService.getAll(),
-          fetch("/api/accounts?role=Vendor").then((r) => r.json()),
+          accountService.getAll({ role: "Vendor", pageSize: 1000 }),
+          categoryService.getAll(),
         ]);
         const evArr = Array.isArray(evList) ? evList : evList.items || [];
         setEvents(evArr);
         setStats((s) => ({ ...s, events: evArr.length }));
-        setVendors(Array.isArray(vendorList) ? vendorList : vendorList.items || []);
+        setVendors(
+          (vendorRes.items || []).map((a) => ({
+            id: a.id,
+            companyName: a.company || a.username,
+          }))
+        );
+        setCategories(Array.isArray(catList) ? catList : catList.items || []);
       } catch {
-        /* silently ignore — dropdowns will be empty */
+        showToast("Không tải được danh sách sự kiện / vendor / danh mục", "error");
       }
     })();
-  }, []);
+  }, []); // eslint-disable-line
 
   useEffect(() => { fetchBooths(); }, [fetchBooths]);
 
@@ -294,14 +296,13 @@ export default function BoothManagementPage() {
         showToast("Tạo gian hàng thành công");
         if (created?.id) {
           setQrBooth(created);
-          setMode("qr");
         } else {
           setMode("list");
         }
       }
       fetchBooths();
-    } catch {
-      showToast("Có lỗi xảy ra, thử lại sau", "error");
+    } catch (err) {
+      showToast(err?.message || "Có lỗi xảy ra, thử lại sau", "error");
     } finally {
       setFormLoading(false);
     }
@@ -381,7 +382,7 @@ export default function BoothManagementPage() {
               <select className="filter-bar__select" value={filterCategory}
                 onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }}>
                 <option value="">Tất cả danh mục</option>
-                {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
 
               <div className="filter-bar__search">
@@ -419,7 +420,6 @@ export default function BoothManagementPage() {
                       <BoothRow key={b.id} booth={b}
                         onEdit={(booth) => { setEditingBooth(booth); setMode("form"); }}
                         onDelete={(booth) => setDeleteTarget(booth)}
-                        onViewQR={(booth) => { setQrBooth(booth); setMode("qr"); }}
                       />
                     ))}
                   </tbody>
@@ -450,25 +450,13 @@ export default function BoothManagementPage() {
             initial={editingBooth}
             events={events}
             vendors={vendors}
+            categories={categories}
             onSave={handleSave}
             onCancel={() => setMode("list")}
             loading={formLoading}
           />
         )}
-
-        {/* ════ QR ════ */}
-        {mode === "qr" && qrBooth && (
-          <div className="qr-view">
-            <h2 className="qr-view__title">QR Code – {qrBooth.name}</h2>
-            <QRCodeGenerator
-              boothId={qrBooth.id}
-              boothName={qrBooth.name}
-              url={qrBooth.qrCodeUrl || `${window.location.origin}/?booth=${qrBooth.id}`}
-            />
-          </div>
-        )}
-
-      </div>
+</div>
     </Layout>
   );
 }

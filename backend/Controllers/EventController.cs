@@ -39,29 +39,31 @@ public class EventController : ControllerBase
             {
                 query = status switch
                 {
-                    "Sắp tới" => query.Where(e => e.StartDate > now),
-                    "Đang mở" => query.Where(e => e.StartDate <= now && e.EndDate >= now),
-                    "Đã kết thúc" => query.Where(e => e.EndDate < now),
+                    "Sắp tới" => query.Where(e => e.StartDate != null && e.StartDate > now),
+                    "Đang mở" => query.Where(e => e.StartDate != null && e.EndDate != null && e.StartDate <= now && e.EndDate >= now),
+                    "Đã kết thúc" => query.Where(e => e.EndDate != null && e.EndDate < now),
                     _ => query
                 };
             }
 
+            // Không dùng Include + Select cùng lúc vì EF Core bỏ qua Include
+            // → dùng subquery Count trực tiếp trong Select
             var events = await query
+                .OrderByDescending(e => e.CreatedAt)
                 .Select(e => new EventResponseDto
                 {
-                    Id = e.Id,
-                    Name = e.Name ?? "",
+                    Id          = e.Id,
+                    Name        = e.Name        ?? "",
                     Description = e.Description ?? "",
-                    Location = e.Location ?? "",
-                    StartDate = e.StartDate,
-                    EndDate = e.EndDate,
-                    LogoUrl = e.LogoUrl ?? "",
-                    QRCodeUrl = e.QRCodeUrl ?? "",
-                    Status = GetEventStatus(e.StartDate, e.EndDate),
-                    CreatedAt = e.CreatedAt,
-                    TotalBooths = e.Booths.Count
+                    Location    = e.Location    ?? "",
+                    StartDate   = e.StartDate   ?? DateTime.MinValue,
+                    EndDate     = e.EndDate     ?? DateTime.MinValue,
+                    LogoUrl     = e.LogoUrl     ?? "",
+                    QRCodeUrl   = e.QRCodeUrl   ?? "",
+                    Status      = GetEventStatus(e.StartDate, e.EndDate),
+                    CreatedAt   = e.CreatedAt   ?? DateTime.MinValue,
+                    TotalBooths = _db.Booths.Count(b => b.EventId == e.Id),
                 })
-                .OrderByDescending(e => e.CreatedAt)
                 .ToListAsync();
 
             return Ok(new { items = events, total = events.Count, page = 1, totalPages = 1 });
@@ -107,12 +109,12 @@ public class EventController : ControllerBase
                 Name = eventItem.Name ?? "",
                 Description = eventItem.Description ?? "",
                 Location = eventItem.Location ?? "",
-                StartDate = eventItem.StartDate,
-                EndDate = eventItem.EndDate,
+                StartDate = eventItem.StartDate ?? DateTime.MinValue,
+                EndDate = eventItem.EndDate ?? DateTime.MinValue,
                 LogoUrl = eventItem.LogoUrl ?? "",
                 QRCodeUrl = eventItem.QRCodeUrl ?? "",
                 Status = GetEventStatus(eventItem.StartDate, eventItem.EndDate),
-                CreatedAt = eventItem.CreatedAt,
+                CreatedAt = eventItem.CreatedAt ?? DateTime.MinValue,
                 TotalBooths = eventItem.Booths?.Count ?? 0
             };
 
@@ -323,7 +325,12 @@ public class EventController : ControllerBase
         try
         {
             // 🔥 URL để nhúng vào QR Code
-            string qrContent = $"http://localhost:5173/?event={eventId}";
+            // Lấy frontend origin từ Referer header, fallback về localhost:5173
+            var referer      = Request.Headers["Referer"].ToString();
+            var frontendBase = string.IsNullOrEmpty(referer)
+                ? "http://localhost:5173"
+                : new Uri(referer).GetLeftPart(UriPartial.Authority);
+            string qrContent = $"{frontendBase}/?event={eventId}";
 
             // 🔥 Tên file
             string fileName = $"event_{eventId}_{Guid.NewGuid().ToString().Substring(0, 8)}.png";
@@ -359,8 +366,17 @@ public class EventController : ControllerBase
     // ============================================
     // 📊 HÀM TÍNH TRẠNG THÁI
     // ============================================
-    private string GetEventStatus(DateTime startDate, DateTime endDate)
+    // Đổi thành static: hàm này không đụng tới bất kỳ field/instance
+    // nào của Controller, nên không cần "this". Quan trọng hơn: khi
+    // dùng trong .Select() của LINQ-to-Entities, EF Core sẽ KHÔNG
+    // cảnh báo "client projection contains a reference to a constant
+    // expression... through the instance method" (cảnh báo này từng
+    // xuất hiện vì EF Core phải giữ tham chiếu tới CHÍNH INSTANCE
+    // Controller để gọi được instance method, có nguy cơ leak nếu
+    // Controller bị giữ sống lâu hơn cần thiết).
+    private static string GetEventStatus(DateTime? startDate, DateTime? endDate)
     {
+        if (startDate == null || endDate == null) return "Chưa xác định";
         var now = DateTime.UtcNow;
         if (now < startDate) return "Sắp tới";
         if (now >= startDate && now <= endDate) return "Đang mở";

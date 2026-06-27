@@ -113,7 +113,6 @@ public class BoothController : ControllerBase
         try
         {
             var booth = await _db.Booths
-                .Include(b => b.Event)
                 .Include(b => b.Category)
                 .Include(b => b.Vendor)
                 .Include(b => b.Narration)
@@ -124,11 +123,51 @@ public class BoothController : ControllerBase
             if (booth == null)
                 return NotFound(new { message = $"Không tìm thấy gian hàng ID {id}" });
 
-            return Ok(booth);
+            // Trả DTO thay vì raw Model để tránh circular reference
+            return Ok(new
+            {
+                id           = booth.Id,
+                boothName    = booth.BoothName,
+                description  = booth.Description,
+                latitude     = booth.Latitude,
+                longitude    = booth.Longitude,
+                radius       = booth.Radius,
+                isActive     = booth.IsActive,
+                categoryName = booth.Category?.Name,
+                vendorName   = booth.Vendor?.CompanyName,
+                narration    = booth.Narration == null ? null : new
+                {
+                    id        = booth.Narration.Id,
+                    title     = booth.Narration.Title,
+                    content   = booth.Narration.Content,
+                    updatedAt = booth.Narration.UpdatedAt,
+                },
+                images = booth.Images.Select(img => new
+                {
+                    id        = img.Id,
+                    filePath  = img.FilePath,
+                    caption   = img.Caption,
+                    sortOrder = img.SortOrder,
+                }).OrderBy(i => i.sortOrder).ToList(),
+                videos = booth.Videos.Select(v => new
+                {
+                    id       = v.Id,
+                    videoUrl = v.VideoUrl,
+                    title    = v.Title,
+                }).ToList(),
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new { message = $"Lỗi server: {ex.Message}" });
+            // Tạm thời trả về chi tiết đầy đủ (kể cả InnerException) để xác
+            // định chính xác cột/bảng nào gây lỗi "Data is Null" — sau khi
+            // xác định xong nên thu lại chỉ trả ex.Message cho gọn & an toàn.
+            var detail = ex.InnerException?.Message ?? ex.Message;
+            return StatusCode(500, new {
+                message = $"Lỗi server: {ex.Message}",
+                inner   = detail,
+                stack   = ex.StackTrace,
+            });
         }
     }
 
@@ -138,6 +177,11 @@ public class BoothController : ControllerBase
     {
         try
         {
+            // ⚠ 1 tài khoản chủ quầy CHỈ được gắn với 1 gian hàng duy nhất
+            var alreadyHasBooth = await _db.Booths.AnyAsync(b => b.VendorId == request.VendorId);
+            if (alreadyHasBooth)
+                return Conflict(new { message = "Vendor này đã được gán cho 1 gian hàng khác — mỗi tài khoản chủ quầy chỉ được gán 1 gian hàng." });
+
             var booth = new Booth
             {
                 EventId     = request.EventId,
@@ -170,6 +214,11 @@ public class BoothController : ControllerBase
             var booth = await _db.Booths.FindAsync(id);
             if (booth == null)
                 return NotFound(new { message = $"Không tìm thấy gian hàng ID {id}" });
+
+            // ⚠ 1 tài khoản chủ quầy CHỈ được gắn với 1 gian hàng duy nhất
+            var alreadyHasBooth = await _db.Booths.AnyAsync(b => b.VendorId == request.VendorId && b.Id != id);
+            if (alreadyHasBooth)
+                return Conflict(new { message = "Vendor này đã được gán cho 1 gian hàng khác — mỗi tài khoản chủ quầy chỉ được gán 1 gian hàng." });
 
             booth.EventId     = request.EventId;
             booth.VendorId    = request.VendorId;

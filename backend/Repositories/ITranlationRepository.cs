@@ -6,9 +6,9 @@ namespace backend.Repositories
 {
     public interface ITranslationRepository
     {
-        Task<Translation> GetByNarrationIdAndLang(int narrationId, string languageCode);
+        Task<Translation?> GetByNarrationIdAndLang(int narrationId, string languageCode);
         Task<IEnumerable<Translation>> GetByNarrationId(int narrationId);
-        Task<Translation> GetById(int id);
+        Task<Translation?> GetById(int id);
         Task<Translation> Create(Translation translation);
         Task<Translation> Update(Translation translation);
         Task<bool> Delete(int id);

@@ -31,38 +31,38 @@ namespace backend.Services
             var events = await _eventRepo.GetAll(status);
             return events.Select(e => new EventResponseDto
             {
-                Id = e.Id,
-                Name = e.Name ?? "",
+                Id          = e.Id,
+                Name        = e.Name ?? "",
                 Description = e.Description ?? "",
-                Location = e.Location ?? "",
-                StartDate = e.StartDate,
-                EndDate = e.EndDate,
-                LogoUrl = e.LogoUrl ?? "",
-                QRCodeUrl = e.QRCodeUrl ?? "",
-                Status = GetEventStatus(e.StartDate, e.EndDate),
-                CreatedAt = e.CreatedAt,
+                Location    = e.Location ?? "",
+                StartDate   = e.StartDate ?? DateTime.MinValue,
+                EndDate     = e.EndDate   ?? DateTime.MinValue,
+                LogoUrl     = e.LogoUrl   ?? "",
+                QRCodeUrl   = e.QRCodeUrl ?? "",
+                Status      = GetEventStatus(e.StartDate, e.EndDate),
+                CreatedAt   = e.CreatedAt ?? DateTime.MinValue,
                 TotalBooths = e.Booths?.Count ?? 0
             });
         }
 
         public async Task<EventResponseDto> GetById(int id)
         {
-            var eventItem = await _eventRepo.GetById(id);
-            if (eventItem == null) return null;
+            var e = await _eventRepo.GetById(id);
+            if (e == null) return null!;
 
             return new EventResponseDto
             {
-                Id = eventItem.Id,
-                Name = eventItem.Name ?? "",
-                Description = eventItem.Description ?? "",
-                Location = eventItem.Location ?? "",
-                StartDate = eventItem.StartDate,
-                EndDate = eventItem.EndDate,
-                LogoUrl = eventItem.LogoUrl ?? "",
-                QRCodeUrl = eventItem.QRCodeUrl ?? "",
-                Status = GetEventStatus(eventItem.StartDate, eventItem.EndDate),
-                CreatedAt = eventItem.CreatedAt,
-                TotalBooths = eventItem.Booths?.Count ?? 0
+                Id          = e.Id,
+                Name        = e.Name ?? "",
+                Description = e.Description ?? "",
+                Location    = e.Location ?? "",
+                StartDate   = e.StartDate ?? DateTime.MinValue,
+                EndDate     = e.EndDate   ?? DateTime.MinValue,
+                LogoUrl     = e.LogoUrl   ?? "",
+                QRCodeUrl   = e.QRCodeUrl ?? "",
+                Status      = GetEventStatus(e.StartDate, e.EndDate),
+                CreatedAt   = e.CreatedAt ?? DateTime.MinValue,
+                TotalBooths = e.Booths?.Count ?? 0
             };
         }
 
@@ -82,13 +82,15 @@ namespace backend.Services
             return await _eventRepo.Delete(id);
         }
 
-        // 🔥 HÀM TÍNH TRẠNG THÁI
-        private string GetEventStatus(DateTime startDate, DateTime endDate)
+        // Nhận DateTime? để khớp với Model
+        private string GetEventStatus(DateTime? startDate, DateTime? endDate)
         {
+            // Nếu chưa set ngày thì coi là "Sắp tới"
+            if (startDate == null || endDate == null) return "Sắp tới";
             var now = DateTime.UtcNow;
-            if (now < startDate) return "Sắp tới";
-            if (now >= startDate && now <= endDate) return "Đang mở";
+            if (now < startDate.Value) return "Sắp tới";
+            if (now <= endDate.Value)  return "Đang mở";
             return "Đã kết thúc";
         }
     }
-}  
+}
