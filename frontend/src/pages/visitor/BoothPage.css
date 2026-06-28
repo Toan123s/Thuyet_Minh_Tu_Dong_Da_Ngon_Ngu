@@ -20,7 +20,22 @@
   max-width: 520px;
   margin: 0 auto;
   min-height: 100vh;
-  background: var(--bg);
+  background: var(--surface);
+}
+
+/* Trên màn rộng (desktop/tablet) bọc thành 1 card rõ ràng, bo góc + đổ
+   bóng, tránh cảm giác trang "trôi" lơ lửng giữa khoảng nền trống */
+@media (min-width: 640px) {
+  body { background: var(--bg); }
+  .bp-page {
+    margin: 24px auto;
+    min-height: calc(100vh - 48px);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.10);
+    border: 1px solid var(--border);
+  }
+  .bp-header { border-radius: 20px 20px 0 0; }
 }
 
 .bp-loading {
@@ -114,7 +129,18 @@
   display: block;
 }
 
-.bp-carousel-empty { font-size: 64px; opacity: 0.22; }
+.bp-carousel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+}
+.bp-carousel-empty-icon { font-size: 48px; opacity: 0.45; }
+.bp-carousel-empty-text { font-size: 12.5px; color: var(--muted); font-weight: 500; }
 
 /* Nav arrows */
 .bp-carousel-nav {

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Toast, { useToast } from "../../components/Toast/Toast";
 import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
 import LanguageSelector from "../../components/LanguageSelector/LanguageSelector";
+import { useOnlinePresence } from '../../hooks/useOnlinePresence';
 import { useLanguage } from "../../hooks/useLanguage";
 import { t } from "../../lang";
 import boothService from "../../services/boothService";
@@ -11,13 +12,25 @@ import visitLogService from "../../services/visitLogService";
 import speechService from "../../services/speechService";
 import "./BoothPage.css";
 
+// Base URL backend — dùng cho ảnh/video static
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5069/api').replace('/api', '');
+
+// Chuyển đường dẫn local /image/... thành URL đầy đủ http://IP:5069/image/...
+function toAbsUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  return `${API_BASE}${path}`;
+}
+
+// Trả { type: 'iframe'|'video', src } thay vì string
 function getEmbedUrl(url) {
   if (!url) return null;
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  if (yt) return { type: 'iframe', src: `https://www.youtube.com/embed/${yt[1]}` };
   const vm = url.match(/vimeo\.com\/(\d+)/);
-  if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
-  return url;
+  if (vm) return { type: 'iframe', src: `https://player.vimeo.com/video/${vm[1]}` };
+  // File local (.mp4, .webm...) → dùng <video> tag
+  return { type: 'video', src: toAbsUrl(url) };
 }
 
 export default function BoothPage() {
@@ -25,6 +38,10 @@ export default function BoothPage() {
   const navigate       = useNavigate();
   const [searchParams] = useSearchParams();
   const { toasts, showToast } = useToast();
+  
+  // Báo hiệu "đang online" — ping server mỗi 20s
+  useOnlinePresence({ boothId: boothId ? parseInt(boothId) : null });
+
   const { lang, setLang } = useLanguage();
   const eventId        = searchParams.get("event") || "1";
 
@@ -200,7 +217,7 @@ export default function BoothPage() {
       <div className="bp-carousel">
         {images.length > 0 ? (
           <>
-            <img src={images[imgIndex]?.filePath} alt="booth" className="bp-carousel-img" />
+            <img src={toAbsUrl(images[imgIndex]?.filePath)} alt="booth" className="bp-carousel-img" />
             {images.length > 1 && (
               <div className="bp-carousel-nav">
                 <button onClick={() => setImgIndex((imgIndex - 1 + images.length) % images.length)}>
@@ -223,7 +240,10 @@ export default function BoothPage() {
             )}
           </>
         ) : (
-          <div className="bp-carousel-empty">🏪</div>
+          <div className="bp-carousel-empty">
+            <span className="bp-carousel-empty-icon">🏪</span>
+            <span className="bp-carousel-empty-text">{t(lang, "noImages")}</span>
+          </div>
         )}
       </div>
 
@@ -298,7 +318,7 @@ export default function BoothPage() {
               ? <p className="bp-media-empty">{t(lang, "noImages")}</p>
               : images.map((img, i) => (
                 <div key={img.id ?? i} className="bp-media-item">
-                  <img src={img.filePath} alt={img.caption || "booth"} />
+                  <img src={toAbsUrl(img.filePath)} alt={img.caption || "booth"} />
                   {img.caption && <p className="bp-media-caption">{img.caption}</p>}
                 </div>
               ))
@@ -316,11 +336,14 @@ export default function BoothPage() {
                   return (
                     <div key={v.id ?? i} className="bp-video-item">
                       {v.title && <p className="bp-video-title">🎬 {v.title}</p>}
-                      {embed
-                        ? <iframe src={embed} className="bp-video-iframe"
+                      {embed?.type === 'iframe'
+                        ? <iframe src={embed.src} className="bp-video-iframe"
                             allowFullScreen title={v.title || "video"} />
-                        : <a href={v.videoUrl} target="_blank" rel="noreferrer"
-                            className="bp-video-link">{v.videoUrl}</a>
+                        : embed?.type === 'video'
+                          ? <video src={embed.src} controls playsInline
+                              style={{ width: '100%', borderRadius: 8, background: '#000', maxHeight: 280 }} />
+                          : <a href={toAbsUrl(v.videoUrl)} target="_blank" rel="noreferrer"
+                              className="bp-video-link">{v.videoUrl}</a>
                       }
                     </div>
                   );

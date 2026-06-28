@@ -12,7 +12,12 @@ namespace backend.Controllers;
 public class BoothController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public BoothController(AppDbContext db) { _db = db; }
+    private readonly backend.Services.CategoryTranslationService _categoryTranslationService;
+    public BoothController(AppDbContext db, backend.Services.CategoryTranslationService categoryTranslationService)
+    {
+        _db = db;
+        _categoryTranslationService = categoryTranslationService;
+    }
 
     // ✅ GET: api/booths — lấy tất cả (Admin dùng cho BoothManagementPage)
     [HttpGet]
@@ -74,18 +79,51 @@ public class BoothController : ControllerBase
         }
     }
 
-    // GET: api/booths/event/{eventId} — visitor/vendor dùng
-    [HttpGet("event/{eventId}")]
-    public async Task<IActionResult> GetByEventId(int eventId)
+
+    // GET: api/booths/all-active — Visitor dùng khi không có eventId (QR chung)
+    [HttpGet("all-active")]
+    public async Task<IActionResult> GetAllActive([FromQuery] string lang = "vi")
     {
         try
         {
-            var booths = await _db.Booths
+            var result = await _db.Booths
+                .Where(b => b.IsActive)
+                .Include(b => b.Category)
+                .Include(b => b.Vendor)
+                .Select(b => new {
+                    b.Id,
+                    BoothName    = b.BoothName,
+                    b.Description,
+                    b.Latitude,
+                    b.Longitude,
+                    b.Radius,
+                    b.IsActive,
+                    b.EventId,
+                    CategoryName = b.Category != null ? b.Category.Name : null,
+                    VendorName   = b.Vendor   != null ? b.Vendor.CompanyName : null,
+                })
+                .ToListAsync();
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi server: {ex.Message}" });
+        }
+    }
+
+    // GET: api/booths/event/{eventId} — visitor/vendor dùng
+    [HttpGet("event/{eventId}")]
+    public async Task<IActionResult> GetByEventId(int eventId, [FromQuery] string lang = "vi")
+    {
+        try
+        {
+            // Không gọi Google Translate ở đây — MapPage chỉ cần tên gốc để hiển thị nhanh
+            var result = await _db.Booths
                 .Where(b => b.EventId == eventId && b.IsActive)
                 .Include(b => b.Category)
                 .Include(b => b.Vendor)
-                .Select(b => new
-                {
+                .Select(b => new {
                     b.Id,
                     BoothName    = b.BoothName,
                     b.Description,
@@ -94,11 +132,11 @@ public class BoothController : ControllerBase
                     b.Radius,
                     b.IsActive,
                     CategoryName = b.Category != null ? b.Category.Name : null,
-                    VendorName   = b.Vendor != null ? b.Vendor.CompanyName : null
+                    VendorName   = b.Vendor   != null ? b.Vendor.CompanyName : null,
                 })
                 .ToListAsync();
 
-            return Ok(booths);
+            return Ok(result);
         }
         catch (Exception ex)
         {

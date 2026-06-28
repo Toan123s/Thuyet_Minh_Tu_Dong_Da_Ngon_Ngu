@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
+using backend.Services;
 
 namespace backend.Controllers;
 
@@ -9,6 +10,7 @@ namespace backend.Controllers;
 public class AdminStatsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly OnlineTrackerService _online;
 
     private static readonly TimeZoneInfo VnZone =
         TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
@@ -21,7 +23,11 @@ public class AdminStatsController : ControllerBase
     private static DateTime ToVnDate(DateTime utc)
         => TimeZoneInfo.ConvertTimeFromUtc(utc, VnZone).Date;
 
-    public AdminStatsController(AppDbContext db) { _db = db; }
+    public AdminStatsController(AppDbContext db, OnlineTrackerService online)
+    {
+        _db     = db;
+        _online = online;
+    }
 
     // GET /api/admin/stats/summary
     // Trả về: totalEvents (TẤT CẢ), activeEvents (ĐANG MỞ), totalBooths, listensToday
@@ -47,14 +53,9 @@ public class AdminStatsController : ControllerBase
         var listensToday = await _db.VisitLogs
             .CountAsync(v => v.VisitedAt >= todayStartUtc && v.VisitedAt < tomorrowStartUtc);
 
-        // "Hành khách online" = khách đang dùng trang web.
-        // ⚠️ Hệ thống hiện KHÔNG có theo dõi phiên/real-time (không có
-        // WebSocket/heartbeat) nên đây là số ƯỚC LƯỢNG: đếm số lượt
-        // quét/nghe (VisitLog) phát sinh trong 5 phút gần nhất — coi như
-        // khách vẫn còn ở khu vực sự kiện và đang dùng web.
-        var onlineWindowStart = now.AddMinutes(-5);
-        var onlineVisitors = await _db.VisitLogs
-            .CountAsync(v => v.VisitedAt >= onlineWindowStart && v.VisitedAt <= now);
+        // "Hành khách online" = số session đang active (heartbeat trong 45s gần nhất).
+        // Frontend gửi ping mỗi 20s khi đang mở trang visitor bất kỳ.
+        var onlineVisitors = _online.GetOnline().Count;
 
         return Ok(new {
             totalEvents,
@@ -152,4 +153,23 @@ public class AdminStatsController : ControllerBase
 
         return Ok(logs);
     }
+
+    // POST /api/admin/online/ping — Frontend visitor gọi mỗi 20s để báo "đang online"
+    // sessionId: UUID tạo 1 lần khi khách vào trang, giữ trong sessionStorage
+    [HttpPost("online/ping")]
+    public IActionResult Ping([FromBody] PingRequest req)
+    {
+        _online.Ping(req.SessionId, req.BoothId ?? 0, req.LanguageCode, req.DeviceType);
+        return Ok();
+    }
+
+    // DELETE /api/admin/online/leave — Gọi khi khách đóng tab (beacon)
+    [HttpDelete("online/leave/{sessionId}")]
+    public IActionResult Leave(string sessionId)
+    {
+        _online.Remove(sessionId);
+        return Ok();
+    }
 }
+
+public record PingRequest(string SessionId, int? BoothId, string? LanguageCode, string? DeviceType);

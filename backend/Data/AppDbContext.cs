@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Image>            Images        { get; set; }
     public DbSet<Video>            Videos        { get; set; }
     public DbSet<VisitLog>         VisitLogs     { get; set; }
+    public DbSet<CategoryTranslation> CategoryTranslations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -120,6 +121,28 @@ public class AppDbContext : DbContext
             e.Property(x => x.Id).HasColumnName("CategoryID");
             e.Property(x => x.Name).HasColumnName("CategoryName");
             e.Property(x => x.Description).HasColumnName("Description");
+        });
+
+        // ── CATEGORY TRANSLATION ──────────────────────────────────────
+        // Cache bản dịch tên category (vd "Di tích - Lịch sử") theo ngôn ngữ.
+        // vi không lưu (luôn trả nguyên văn) — chỉ lưu các ngôn ngữ khác.
+        modelBuilder.Entity<CategoryTranslation>(e =>
+        {
+            e.ToTable("CATEGORY_TRANSLATION");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("CategoryTranslationID");
+            e.Property(x => x.CategoryId).HasColumnName("CategoryID");
+            e.Property(x => x.LanguageCode).HasColumnName("LanguageCode").IsRequired().HasMaxLength(10);
+            e.Property(x => x.Name).HasColumnName("Name").IsRequired().HasMaxLength(200);
+            e.Property(x => x.CreatedAt).HasColumnName("CreatedAt").IsRequired();
+            e.Property(x => x.UpdatedAt).HasColumnName("UpdatedAt").IsRequired();
+
+            e.HasIndex(x => new { x.CategoryId, x.LanguageCode }).IsUnique();
+
+            e.HasOne(x => x.Category)
+             .WithMany()
+             .HasForeignKey(x => x.CategoryId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── NARRATION ───────────────────────────────────────────────

@@ -149,6 +149,8 @@
 
 .em-btn--qr   { background: #eff6ff; color: #2563eb; font-size: 12.5px; padding: 6px 10px; }
 .em-btn--qr:hover { background: #dbeafe; }
+.em-btn--qr-global { background: #f0fdf4; color: #16a34a; border: 1.5px solid #bbf7d0; font-weight: 600; }
+.em-btn--qr-global:hover { background: #dcfce7; }
 .em-btn--edit { background: #f0fdf4; color: #15803d; font-size: 12.5px; padding: 6px 10px; }
 .em-btn--edit:hover { background: #dcfce7; }
 .em-btn--del  { background: #fff1f2; color: var(--red); font-size: 12.5px; padding: 6px 10px; }

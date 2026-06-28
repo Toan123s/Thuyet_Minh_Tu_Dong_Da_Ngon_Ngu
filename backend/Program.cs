@@ -59,6 +59,7 @@ builder.Services.AddScoped<ITranslationRepository, TranslationRepository>();
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
 builder.Services.AddScoped<IVideoRepository, VideoRepository>();
 builder.Services.AddScoped<IVisitLogRepository, VisitLogRepository>();
+builder.Services.AddScoped<ICategoryTranslationRepository, CategoryTranslationRepository>();
 
 // 4b. Dang ky them class cu the
 builder.Services.AddScoped<ImageRepository>();
@@ -72,6 +73,7 @@ builder.Services.AddScoped<AuthRepository>();
 // 5. DANG KY SERVICES
 // ============================================
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<OnlineTrackerService>(); // Singleton: giữ session trong RAM
 builder.Services.AddScoped<NarrationService>();
 builder.Services.AddScoped<TranslationService>();
 builder.Services.AddScoped<SpeechService>();
@@ -82,6 +84,7 @@ builder.Services.AddScoped<JwtHelper>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<VendorService>();
+builder.Services.AddScoped<CategoryTranslationService>();
 
 // ============================================
 // 6. CAU HINH JWT AUTHENTICATION

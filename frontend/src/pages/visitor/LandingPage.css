@@ -282,3 +282,84 @@
         padding: 14px 24px;
     }
 }
+/* ── Language switcher ── */
+.lang-switcher {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  z-index: 100;
+}
+.lang-btn {
+  padding: 5px 10px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 20px;
+  background: #fff;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.lang-btn:hover { background: #f3f4f6; }
+.lang-btn--active {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+
+/* ── Lang picker nhỏ gọn (góc trên phải) ── */
+.lp-lang-wrap {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 200;
+}
+.lp-lang-trigger {
+  padding: 6px 12px;
+  background: rgba(255,255,255,0.92);
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.lp-lang-trigger:hover { background: #f9fafb; }
+
+.lp-lang-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  min-width: 100px;
+}
+.lp-lang-option {
+  padding: 7px 12px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  text-align: left;
+}
+.lp-lang-option:hover { background: #f3f4f6; }
+.lp-lang-option--active {
+  background: #ede9fe;
+  color: #4f46e5;
+  font-weight: 700;
+}

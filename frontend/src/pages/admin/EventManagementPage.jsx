@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from '../../components/Layout/Layout';
 import eventService from '../../services/eventService';
 import LoadingSpinner from '../../components/LoadingSpinner/LoadingSpinner';
@@ -17,6 +17,64 @@ const EMPTY_FORM = {
   startDate: '', endDate: '', logoUrl: '',
 };
 
+
+// ── QR Toàn khu: generate thẳng trên trình duyệt, không cần backend ──
+// URL cố định = origin + /map → không bao giờ thay đổi, không bao giờ hỏng
+function GlobalQRCode() {
+  const canvasRef = useRef(null);
+  const [copied,  setCopied]  = useState(false);
+  const [ready,   setReady]   = useState(false);
+  const url = `${window.location.origin}/map`;
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    import("qrcode").then((QRCode) => {
+      QRCode.toCanvas(canvasRef.current, url, {
+        width: 240, margin: 2,
+        color: { dark: "#111827", light: "#ffffff" },
+      }, () => setReady(true));
+    });
+  }, [url]);
+
+  function handleDownload() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const hi = document.createElement("canvas");
+    hi.width = hi.height = 1024;
+    const ctx = hi.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(canvas, 0, 0, 1024, 1024);
+    const a = document.createElement("a");
+    a.download = "QR_Toan_Khu.png";
+    a.href = hi.toDataURL("image/png");
+    a.click();
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16 }}>
+      <canvas
+        ref={canvasRef}
+        style={{ borderRadius:8, border:"1px solid #e5e7eb", opacity: ready ? 1 : 0.3, transition:"opacity 0.3s" }}
+      />
+      <code style={{ fontSize:12, color:"#6b7280", wordBreak:"break-all", textAlign:"center" }}>{url}</code>
+      <div style={{ display:"flex", gap:8 }}>
+        <button className="em-btn em-btn--primary" onClick={handleDownload}>⬇️ Tải PNG</button>
+        <button className="em-btn em-btn--outline" onClick={handleCopy}>
+          {copied ? "✅ Đã copy" : "📋 Copy URL"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function EventManagementPage() {
   const [events,        setEvents]        = useState([]);
   const [loading,       setLoading]       = useState(true);
@@ -29,10 +87,8 @@ export default function EventManagementPage() {
   const [saving,        setSaving]        = useState(false);
   const [formError,     setFormError]     = useState('');
 
-  // QR modal
-  const [qrEvent,       setQrEvent]       = useState(null);
-  const [qrUrl,         setQrUrl]         = useState('');
-  const [qrLoading,     setQrLoading]     = useState(false);
+  // QR toàn khu
+  const [showGlobalQR,  setShowGlobalQR]  = useState(false);
 
   // Delete confirm
   const [deleteTarget,  setDeleteTarget]  = useState(null);
@@ -114,51 +170,6 @@ export default function EventManagementPage() {
     }
   }
 
-  // ── QR helpers ──────────────────────────────────────
-  async function openQR(ev) {
-    setQrEvent(ev);
-    setQrUrl(ev.qrCodeUrl || '');
-    setQrLoading(false);
-
-    // Nếu chưa có QR → tự tạo
-    if (!ev.qrCodeUrl) {
-      setQrLoading(true);
-      try {
-        const res = await eventService.generateQR(ev.id);
-        setQrUrl(res.qrCodeUrl);
-        setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, qrCodeUrl: res.qrCodeUrl } : e));
-      } catch {
-        alert('❌ Không thể tạo QR Code!');
-        setQrEvent(null);
-        return;
-      } finally {
-        setQrLoading(false);
-      }
-    }
-  }
-
-  async function handleRegenerateQR() {
-    if (!qrEvent) return;
-    setQrLoading(true);
-    try {
-      const res = await eventService.generateQR(qrEvent.id);
-      setQrUrl(res.qrCodeUrl);
-      setEvents(prev => prev.map(e => e.id === qrEvent.id ? { ...e, qrCodeUrl: res.qrCodeUrl } : e));
-    } catch {
-      alert('❌ Lỗi tạo lại QR Code!');
-    } finally {
-      setQrLoading(false);
-    }
-  }
-
-  function handleDownloadQR() {
-    if (!qrUrl) return;
-    const a = document.createElement('a');
-    a.href     = `${API_BASE}${qrUrl}`;
-    a.download = `qrcode_event_${qrEvent.id}.png`;
-    a.click();
-  }
-
   // ── Delete ──────────────────────────────────────────
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -183,8 +194,11 @@ export default function EventManagementPage() {
         <div className="em-header">
           <div>
             <h1 className="em-title">📋 Quản lý sự kiện</h1>
-            <p className="em-subtitle">Tạo và quản lý sự kiện, mã QR tham quan</p>
+            <p className="em-subtitle">Tạo và quản lý các sự kiện tham quan</p>
           </div>
+          <button className="em-btn em-btn--qr-global" onClick={() => setShowGlobalQR(true)}>
+            📱 QR Toàn khu
+          </button>
           <button className="em-btn em-btn--primary" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tạo sự kiện
@@ -210,7 +224,10 @@ export default function EventManagementPage() {
           <div className="em-empty">
             <div className="em-empty-icon">📭</div>
             <p>Chưa có sự kiện nào.</p>
-            <button className="em-btn em-btn--primary" onClick={openCreate}>Tạo sự kiện đầu tiên</button>
+            <button className="em-btn em-btn--qr-global" onClick={() => setShowGlobalQR(true)}>
+            📱 QR Toàn khu
+          </button>
+          <button className="em-btn em-btn--primary" onClick={openCreate}>Tạo sự kiện đầu tiên</button>
           </div>
         ) : (
           <div className="em-table-wrap">
@@ -223,7 +240,6 @@ export default function EventManagementPage() {
                   <th>Thời gian</th>
                   <th>Trạng thái</th>
                   <th>Booth</th>
-                  <th>QR Code</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
@@ -249,14 +265,8 @@ export default function EventManagementPage() {
                         <span className={`em-badge em-badge--${st.cls}`}>{st.label}</span>
                       </td>
                       <td className="em-td-center">{ev.totalBooths ?? 0}</td>
-                      <td className="em-td-center">
-                        {ev.qrCodeUrl
-                          ? <span className="em-qr-ok">✅ Đã tạo</span>
-                          : <span className="em-qr-no">❌ Chưa tạo</span>}
-                      </td>
                       <td>
                         <div className="em-actions">
-                          <button className="em-btn em-btn--qr"  onClick={() => openQR(ev)}    title="Xem / Tạo QR">📱 QR</button>
                           <button className="em-btn em-btn--edit" onClick={() => openEdit(ev)}  title="Sửa">✏️</button>
                           <button className="em-btn em-btn--del"  onClick={() => setDeleteTarget(ev)} title="Xóa">🗑️</button>
                         </div>
@@ -339,73 +349,28 @@ export default function EventManagementPage() {
           </div>
         )}
 
-        {/* ─────────── MODAL: QR Code ─────────── */}
-        {qrEvent && (
-          <div className="em-overlay" onClick={() => setQrEvent(null)}>
+        {/* ─────────── MODAL: QR Toàn khu ─────────── */}
+        {showGlobalQR && (
+          <div className="em-overlay" onClick={() => setShowGlobalQR(false)}>
             <div className="em-modal em-modal--qr" onClick={e => e.stopPropagation()}>
               <div className="em-modal-header">
-                <h2>📱 QR Code — {qrEvent.name}</h2>
-                <button className="em-modal-close" onClick={() => setQrEvent(null)}>✕</button>
+                <h2>📱 QR Code Toàn khu</h2>
+                <button className="em-modal-close" onClick={() => setShowGlobalQR(false)}>✕</button>
               </div>
-
               <div className="em-qr-body">
-                {/* QR image */}
-                <div className="em-qr-img-wrap">
-                  {qrLoading ? (
-                    <div className="em-qr-generating">
-                      <LoadingSpinner size="md" label="Đang tạo QR..." />
-                    </div>
-                  ) : qrUrl ? (
-                    <img
-                      src={`${API_BASE}${qrUrl}`}
-                      alt="QR Code"
-                      className="em-qr-img"
-                      onError={e => { e.target.style.display='none'; }}
-                    />
-                  ) : (
-                    <div className="em-qr-placeholder">❌ Không có QR</div>
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="em-qr-info">
-                  <div className="em-qr-info-row">
-                    <span className="em-qr-info-label">🔗 URL quét:</span>
-                    <code className="em-qr-url">{window.location.origin}/?event={qrEvent.id}</code>
-                  </div>
-                  <div className="em-qr-info-row">
-                    <span className="em-qr-info-label">📌 Event ID:</span>
-                    <span>#{qrEvent.id}</span>
-                  </div>
-                  {qrUrl && (
-                    <div className="em-qr-info-row">
-                      <span className="em-qr-info-label">📂 File:</span>
-                      <span className="em-qr-file">{qrUrl}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Hướng dẫn */}
+                <GlobalQRCode />
                 <div className="em-qr-guide">
-                  <strong>📋 Hướng dẫn sử dụng:</strong>
+                  <strong>📋 Hướng dẫn:</strong>
                   <ol>
-                    <li>Tải QR Code về máy (nút bên dưới)</li>
-                    <li>In ra giấy, kích thước tối thiểu <strong>5×5 cm</strong></li>
-                    <li>Dán tại cổng vào / trạm check-in sự kiện</li>
-                    <li>Khách quét bằng camera điện thoại</li>
-                    <li>Tự động mở trang thuyết minh</li>
+                    <li>Tải QR về máy hoặc chụp màn hình</li>
+                    <li>In ra, kích thước tối thiểu <strong>5×5 cm</strong></li>
+                    <li>Dán tại cổng vào / trạm check-in</li>
+                    <li>Khách quét → tự động mở bản đồ gian hàng</li>
+                    <li>QR này <strong>không bao giờ hỏng</strong> — dùng mãi</li>
                   </ol>
                 </div>
-
-                {/* Actions */}
                 <div className="em-qr-actions">
-                  <button className="em-btn em-btn--primary" onClick={handleDownloadQR} disabled={!qrUrl || qrLoading}>
-                    ⬇️ Tải xuống PNG
-                  </button>
-                  <button className="em-btn em-btn--outline" onClick={handleRegenerateQR} disabled={qrLoading}>
-                    🔄 Tạo lại QR
-                  </button>
-                  <button className="em-btn em-btn--ghost" onClick={() => setQrEvent(null)}>
+                  <button className="em-btn em-btn--ghost" onClick={() => setShowGlobalQR(false)}>
                     Đóng
                   </button>
                 </div>

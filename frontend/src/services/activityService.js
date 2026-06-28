@@ -19,11 +19,26 @@ const activityService = {
             timeZone: "Asia/Ho_Chi_Minh",
           });
 
+          // ⚠ Trước đây chỉ hiện giờ:phút → nếu hôm nay chưa có ai nghe,
+          // danh sách vẫn hiện log của vài ngày trước với giờ:phút, dễ
+          // hiểu lầm là "vừa mới nghe hôm nay". Giờ thêm NGÀY vào, chỉ ẩn
+          // ngày khi đúng là hôm nay (theo giờ VN) để đỡ rối mắt.
+          const nowVn = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+          const dateVnStr = dateObj.toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+          const isToday = dateVnStr === nowVn.toLocaleDateString("vi-VN");
+
+          const dateLabel = dateObj.toLocaleDateString("vi-VN", {
+            day:      "2-digit",
+            month:    "2-digit",
+            timeZone: "Asia/Ho_Chi_Minh",
+          });
+          const timeWithDate = isToday ? time : `${dateLabel} ${time}`;
+
           return {
             id:    item.id,
             text:  `Gian hàng "${item.boothName}" vừa có lượt nghe`,
             sub:   `Ngôn ngữ: ${item.languageCode} · ${item.deviceType}`,
-            time,
+            time:  timeWithDate,
             color: "blue",
           };
         })

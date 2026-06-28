@@ -6,6 +6,12 @@ const eventService = {
         return api.get('/events', { params });
     },
 
+    // Sự kiện đang diễn ra hôm nay — dùng cho kiosk mode
+    getActiveToday: () => api.get('/events/active-today'),
+
+    // QR toàn khu — dùng cho kiosk mode
+    getGlobalQR: () => api.get('/events/global-qr'),
+
     getById: async (id) => {
         if (!id) throw new Error('Event ID không hợp lệ!');
         return api.get(`/events/${id}`);
@@ -38,9 +44,14 @@ const eventService = {
     },
 
     // Visitor: lấy danh sách booth theo event (alias getByEventId từ boothService)
-    getBooths: (eventId) => {
+    // Lấy TẤT CẢ booths active — dùng khi không có eventId (QR chung không thuộc sự kiện nào)
+    getAllBooths: (lang = "vi") => {
+        return api.get('/booths/all-active', { params: { lang } });
+    },
+
+    getBooths: (eventId, lang = "vi") => {
         if (!eventId) throw new Error('Event ID không hợp lệ!');
-        return api.get(`/booths/event/${eventId}`);
+        return api.get(`/booths/event/${eventId}`, { params: { lang } });
     },
 
     checkQRExists: async (id) => {

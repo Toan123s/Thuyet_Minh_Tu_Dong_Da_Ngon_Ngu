@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Data;
@@ -17,16 +18,54 @@ public class EventController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _config;
 
-    public EventController(AppDbContext db, IWebHostEnvironment env)
+    public EventController(AppDbContext db, IWebHostEnvironment env, IConfiguration config)
     {
         _db = db;
         _env = env;
+        _config = config;
     }
 
     // ============================================
     // 📋 GET: api/events - LẤY DANH SÁCH
     // ============================================
+    // GET /api/events/active-today — sự kiện đang diễn ra hôm nay (giờ VN)
+    [HttpGet("active-today")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetActiveToday()
+    {
+        try
+        {
+            var vnNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+                TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time"));
+            var today = vnNow.Date;
+
+            var events = await _db.Events
+                .Where(e => e.StartDate.HasValue && e.EndDate.HasValue
+                    && e.StartDate.Value.Date <= today
+                    && e.EndDate.Value.Date   >= today)
+                .OrderByDescending(e => e.StartDate)
+                .Select(e => new {
+                    id          = e.Id,
+                    name        = e.Name        ?? "",
+                    description = e.Description ?? "",
+                    location    = e.Location    ?? "",
+                    startDate   = e.StartDate,
+                    endDate     = e.EndDate,
+                    qrCodeUrl   = e.QRCodeUrl,
+                    totalBooths = e.Booths != null ? e.Booths.Count : 0,
+                })
+                .ToListAsync();
+
+            return Ok(events);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi server: {ex.Message}" });
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? status = null)
     {
@@ -62,7 +101,7 @@ public class EventController : ControllerBase
                     QRCodeUrl   = e.QRCodeUrl   ?? "",
                     Status      = GetEventStatus(e.StartDate, e.EndDate),
                     CreatedAt   = e.CreatedAt   ?? DateTime.MinValue,
-                    TotalBooths = _db.Booths.Count(b => b.EventId == e.Id),
+                    TotalBooths = e.Booths != null ? e.Booths.Count : 0,
                 })
                 .ToListAsync();
 
@@ -75,7 +114,7 @@ public class EventController : ControllerBase
     }
 
     // ============================================
-    // 📋 GET: api/events/{id} - CHI TIẾT + TỰ ĐỘNG TẠO QR
+    // 📋 GET: api/events/{id} - CHI TIẾT
     // ============================================
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
@@ -89,18 +128,6 @@ public class EventController : ControllerBase
             if (eventItem == null)
             {
                 return NotFound(new { message = $"Không tìm thấy sự kiện với ID {id}" });
-            }
-
-            // 🔥 QUAN TRỌNG: TỰ ĐỘNG TẠO QR CHO SỰ KIỆN CŨ
-            if (string.IsNullOrEmpty(eventItem.QRCodeUrl))
-            {
-                Console.WriteLine($"🔧 Event {id} chưa có QR, đang tạo...");
-                string qrUrl = await GenerateQRCodeForEvent(eventItem.Id);
-                eventItem.QRCodeUrl = qrUrl;
-                await _db.SaveChangesAsync();
-                Console.WriteLine($"✅ Đã tạo QR cho event {id}: {qrUrl}");
-                // Reload để lấy dữ liệu mới
-                await _db.Entry(eventItem).ReloadAsync();
             }
 
             var response = new EventResponseDto
@@ -292,16 +319,6 @@ public class EventController : ControllerBase
             if (eventItem == null)
                 return NotFound(new { message = $"Không tìm thấy sự kiện với ID {id}" });
 
-            // 🔥 NẾU CHƯA CÓ QR → TỰ ĐỘNG TẠO
-            if (string.IsNullOrEmpty(eventItem.QRCodeUrl))
-            {
-                Console.WriteLine($"🔧 Event {id} chưa có QR, đang tạo...");
-                string qrUrl = await GenerateQRCodeForEvent(id);
-                eventItem.QRCodeUrl = qrUrl;
-                await _db.SaveChangesAsync();
-                Console.WriteLine($"✅ Đã tạo QR cho event {id}");
-            }
-
             string filePath = Path.Combine(_env.WebRootPath, eventItem.QRCodeUrl.TrimStart('/'));
             if (!System.IO.File.Exists(filePath))
             {
@@ -320,16 +337,97 @@ public class EventController : ControllerBase
     // ============================================
     // 🔧 HÀM TẠO QR CODE
     // ============================================
+
+    // 📱 POST: api/events/generate-global-qr
+    // Tạo 1 QR DUY NHẤT không gắn với sự kiện nào.
+    // Khách quét → vào /map → hiện TẤT CẢ booths active trong DB.
+    // Dùng khi không có sự kiện nào đang mở, hoặc muốn 1 QR đặt cố định tại địa điểm.
+    [HttpPost("generate-global-qr")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GenerateGlobalQR()
+    {
+        try
+        {
+            // Xác định frontend base URL (cùng logic với GenerateQRCodeForEvent)
+            string frontendBase;
+            var configuredUrl = _config["PublicFrontendUrl"];
+            if (!string.IsNullOrWhiteSpace(configuredUrl)
+                && Uri.TryCreate(configuredUrl, UriKind.Absolute, out var configuredUri))
+            {
+                frontendBase = configuredUri.GetLeftPart(UriPartial.Authority);
+            }
+            else
+            {
+                var referer = Request.Headers["Referer"].ToString();
+                frontendBase = (!string.IsNullOrWhiteSpace(referer)
+                                 && referer != "null"
+                                 && Uri.TryCreate(referer, UriKind.Absolute, out var refererUri))
+                    ? refererUri.GetLeftPart(UriPartial.Authority)
+                    : "http://localhost:5173";
+            }
+
+            // URL không có ?event= → MapPage sẽ gọi /api/booths/all-active
+            string qrContent = $"{frontendBase}/map";
+
+            string fileName  = $"global_qr_{Guid.NewGuid().ToString().Substring(0, 8)}.png";
+            string directory = Path.Combine(_env.WebRootPath, "qrcodes");
+            if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+            string filePath  = Path.Combine(directory, fileName);
+
+            using (var qrGenerator = new QRCodeGenerator())
+            {
+                var qrCodeData = qrGenerator.CreateQrCode(qrContent, QRCodeGenerator.ECCLevel.Q);
+                var qrCode     = new PngByteQRCode(qrCodeData);
+                byte[] bytes   = qrCode.GetGraphic(20);
+                await System.IO.File.WriteAllBytesAsync(filePath, bytes);
+            }
+
+            string qrUrl = $"/qrcodes/{fileName}";
+            Console.WriteLine($"✅ Đã tạo QR chung: {filePath} → {qrContent}");
+
+            return Ok(new {
+                qrCodeUrl = qrUrl,
+                fullUrl   = $"{Request.Scheme}://{Request.Host}{qrUrl}",
+                targetUrl = qrContent,
+                note      = "QR này trỏ vào /map và hiện toàn bộ booths active, không gắn với sự kiện nào."
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = $"Lỗi server: {ex.Message}" });
+        }
+    }
+
     private async Task<string> GenerateQRCodeForEvent(int eventId)
     {
         try
         {
-            // 🔥 URL để nhúng vào QR Code
-            // Lấy frontend origin từ Referer header, fallback về localhost:5173
-            var referer      = Request.Headers["Referer"].ToString();
-            var frontendBase = string.IsNullOrEmpty(referer)
-                ? "http://localhost:5173"
-                : new Uri(referer).GetLeftPart(UriPartial.Authority);
+            // 🔥 URL để nhúng vào QR Code — ưu tiên theo thứ tự:
+            // 1) Config "PublicFrontendUrl" trong appsettings.json (admin set 1 lần,
+            //    đáng tin cậy nhất — vd "http://192.168.1.50:5173" lúc test LAN,
+            //    hoặc domain thật lúc deploy production).
+            // 2) Header Referer — CHỈ dùng nếu nó là 1 URL tuyệt đối hợp lệ.
+            //    ⚠ Một số trình duyệt gửi Referer là chữ "null" (literal) cho
+            //    request AJAX cross-origin → nếu không kiểm tra, QR sẽ bị nhúng
+            //    nguyên chữ "null" làm khách quét không vào được trang nào cả.
+            // 3) Fallback cuối cùng: localhost (chỉ dùng được khi test trên
+            //    chính máy chạy server, không quét được từ điện thoại khác).
+            string frontendBase;
+            var configuredUrl = _config["PublicFrontendUrl"];
+            if (!string.IsNullOrWhiteSpace(configuredUrl)
+                && Uri.TryCreate(configuredUrl, UriKind.Absolute, out var configuredUri))
+            {
+                frontendBase = configuredUri.GetLeftPart(UriPartial.Authority);
+            }
+            else
+            {
+                var referer = Request.Headers["Referer"].ToString();
+                frontendBase = (!string.IsNullOrWhiteSpace(referer)
+                                 && referer != "null"
+                                 && Uri.TryCreate(referer, UriKind.Absolute, out var refererUri))
+                    ? refererUri.GetLeftPart(UriPartial.Authority)
+                    : "http://localhost:5173";
+            }
             string qrContent = $"{frontendBase}/?event={eventId}";
 
             // 🔥 Tên file

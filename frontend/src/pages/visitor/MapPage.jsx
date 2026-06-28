@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
 import Toast, { useToast } from "../../components/Toast/Toast";
 import LanguageSelector from "../../components/LanguageSelector/LanguageSelector";
+import { useOnlinePresence } from '../../hooks/useOnlinePresence';
 import { useLanguage } from "../../hooks/useLanguage";
 import { t } from "../../lang";
 import eventService from "../../services/eventService";
@@ -32,7 +33,11 @@ function getDistance(lat1, lng1, lat2, lng2) {
 export default function MapPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const eventId = searchParams.get("event") || "1";
+  const eventId = searchParams.get("event") || null; // null = QR chung, load tất cả booths
+  
+  // Báo hiệu "đang online" — ping server mỗi 20s
+  useOnlinePresence({ boothId: null });
+
   const { lang, setLang } = useLanguage();
   const { toasts, showToast } = useToast();
 
@@ -55,12 +60,21 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
-    eventService.getBooths(eventId)
+    setLoading(true);
+    // Nếu có eventId → lấy booths của event đó
+    // Nếu không có eventId (QR chung) → lấy TẤT CẢ booths active trong DB
+    const fetchPromise = eventId
+      ? eventService.getBooths(eventId)
+      : eventService.getAllBooths();
+
+    fetchPromise
       .then((data) => setBooths(Array.isArray(data) ? data : []))
       .catch(() => showToast("Không thể tải danh sách gian hàng.", "error"))
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]); // Không fetch lại khi đổi lang
+
 
   const categories = [...new Set(booths.map(b => b.categoryName).filter(Boolean))];
 
@@ -82,7 +96,9 @@ export default function MapPage() {
     .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
 
   function handleBoothClick(booth) {
-    navigate(`/booth/${booth.id}?event=${eventId}&lang=${lang}`);
+    const q = new URLSearchParams({ lang });
+    if (eventId) q.set("event", eventId);
+    navigate(`/booth/${booth.id}?${q.toString()}`);
   }
   function handleListClick(booth) {
     setHighlighted(booth.id);
@@ -101,7 +117,7 @@ export default function MapPage() {
       <div className="mp-topbar">
         <button
           className="mp-back-btn"
-          onClick={() => navigate(`/?event=${eventId}&lang=${lang}`)}
+          onClick={() => navigate(eventId ? `/?event=${eventId}&lang=${lang}` : `/`)}
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
