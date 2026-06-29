@@ -6,6 +6,7 @@
 
 import { useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import languageService from "../services/languageService";
 
 export const SUPPORTED_LANGUAGES = ["vi", "en", "ja", "zh", "ko", "fr"];
 const STORAGE_KEY = "lang";
@@ -21,7 +22,14 @@ function detectInitialLang(searchParams) {
   //    → Đảm bảo mỗi người quét QR bằng điện thoại của họ
   //      sẽ thấy đúng ngôn ngữ của họ
   const browserLang = navigator.language?.split("-")[0];
-  if (browserLang && SUPPORTED_LANGUAGES.includes(browserLang)) return browserLang;
+  if (browserLang && SUPPORTED_LANGUAGES.includes(browserLang)) {
+    // 🟢 Báo cho server "vừa có khách dùng ngôn ngữ này" — nếu server
+    // chưa từng có ngôn ngữ này trong danh sách (dropdown) thì sẽ thêm
+    // vào, để TỪ ĐÓ MỌI khách khác cũng thấy nó xuất hiện trong dropdown.
+    // Fire-and-forget — không chặn render, không throw lỗi ra ngoài.
+    languageService.detect(browserLang);
+    return browserLang;
+  }
 
   return "vi";
 }

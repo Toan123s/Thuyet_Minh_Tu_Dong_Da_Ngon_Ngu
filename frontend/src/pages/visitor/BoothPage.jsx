@@ -40,7 +40,11 @@ export default function BoothPage() {
   const { toasts, showToast } = useToast();
   
   // Báo hiệu "đang online" — ping server mỗi 20s
-  useOnlinePresence({ boothId: boothId ? parseInt(boothId) : null });
+  // 🟢 FIX: trước đây dùng biến `boothId` chưa từng được khai báo ở đâu
+  // trong component này (chỉ có `id` từ useParams()) → ReferenceError ngay
+  // khi render → React crash toàn trang BoothPage → đây chính là lý do
+  // bấm vào gian hàng bị "không load được" (trang trắng/treo).
+  useOnlinePresence({ boothId: id ? parseInt(id) : null });
 
   const { lang, setLang } = useLanguage();
   const eventId        = searchParams.get("event") || "1";

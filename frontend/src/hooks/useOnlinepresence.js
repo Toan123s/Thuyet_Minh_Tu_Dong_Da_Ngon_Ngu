@@ -11,10 +11,29 @@ const PING_URL  = `${(import.meta.env.VITE_API_URL || 'http://localhost:5069/api
 const LEAVE_URL = (sid) =>
   `${(import.meta.env.VITE_API_URL || 'http://localhost:5069/api')}/admin/online/leave/${sid}`;
 
+// Fallback tạo UUID khi crypto.randomUUID() không tồn tại — xảy ra khi
+// trang được tải qua "insecure context" (http://<LAN-IP>:port, không phải
+// localhost và không phải https://). Đây CHÍNH XÁC là tình huống quét QR
+// qua điện thoại trong mạng LAN dev (vd http://192.168.50.8:5173) — lúc đó
+// crypto.randomUUID là undefined, gọi nó sẽ throw ngay khi mount component
+// → React crash, không render được gì → toàn trang trắng, không có lỗi
+// hiển thị rõ ràng cho người dùng.
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback RFC4122-ish, đủ dùng để định danh session, không cần chuẩn crypto
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function getOrCreateSessionId() {
   let sid = sessionStorage.getItem('visitor_session_id');
   if (!sid) {
-    sid = crypto.randomUUID();
+    sid = generateUUID();
     sessionStorage.setItem('visitor_session_id', sid);
   }
   return sid;

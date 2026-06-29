@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<Video>            Videos        { get; set; }
     public DbSet<VisitLog>         VisitLogs     { get; set; }
     public DbSet<CategoryTranslation> CategoryTranslations { get; set; }
+    public DbSet<SupportedLanguage> SupportedLanguages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -228,6 +229,17 @@ public class AppDbContext : DbContext
              .WithMany(b => b.VisitLogs)
              .HasForeignKey(x => x.BoothId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── SUPPORTED LANGUAGE (danh sách ngôn ngữ toàn cục cho dropdown) ──
+        modelBuilder.Entity<SupportedLanguage>(e =>
+        {
+            e.ToTable("SUPPORTED_LANGUAGE");
+            e.HasKey(x => x.Code);
+            e.Property(x => x.Code).HasColumnName("Code").HasMaxLength(10);
+            e.Property(x => x.Label).HasColumnName("Label").IsRequired().HasMaxLength(100);
+            e.Property(x => x.Flag).HasColumnName("Flag").HasMaxLength(10);
+            e.Property(x => x.AddedAt).HasColumnName("AddedAt").IsRequired();
         });
 
     }

@@ -106,6 +106,44 @@ namespace backend.Controllers
                 return StatusCode(503, new { message = "Azure Speech lỗi.", detail = ex.Message });
             }
         }
+        // POST /api/speech/gtts — Google Translate TTS proxy (free, no key needed)
+        [HttpPost("gtts")]
+        public async Task<IActionResult> GoogleTTS([FromBody] GenerateSpeechDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Text))
+                return BadRequest(new { message = "text la bat buoc." });
+
+            var langMap = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["vi"] = "vi", ["en"] = "en", ["ja"] = "ja",
+                ["zh"] = "zh-CN", ["ko"] = "ko", ["fr"] = "fr",
+            };
+            var tl = langMap.TryGetValue(dto.LanguageCode ?? "vi", out var mapped) ? mapped : "vi";
+
+            try
+            {
+                var text    = dto.Text.Length > 200 ? dto.Text[..200] : dto.Text;
+                var encoded = Uri.EscapeDataString(text);
+                var url     = $"https://translate.google.com/translate_tts?ie=UTF-8&q={encoded}&tl={tl}&client=tw-ob&ttsspeed=0.9";
+
+                using var http = new System.Net.Http.HttpClient();
+                http.DefaultRequestHeaders.Add("User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                http.Timeout = TimeSpan.FromSeconds(10);
+
+                var bytes    = await http.GetByteArrayAsync(url);
+                var folder   = Path.Combine(_env.WebRootPath ?? "wwwroot", "audio");
+                Directory.CreateDirectory(folder);
+                var fileName = $"gtts_{Guid.NewGuid()}.mp3";
+                await System.IO.File.WriteAllBytesAsync(Path.Combine(folder, fileName), bytes);
+
+                return Ok(new { audioUrl = $"/audio/{fileName}" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(503, new { message = "Google TTS loi.", detail = ex.Message });
+            }
+        }
     }
 
     public class GenerateSpeechDto

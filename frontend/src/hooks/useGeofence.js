@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import boothService from '../services/boothService';
+import { getCurrentLang } from './useLanguage';
 
 /**
  * Hook chạy nền: watchPosition → tìm booth gần nhất → navigate tự động.
@@ -74,7 +75,10 @@ export function useGeofence(eventId, isActiveRoute = true) {
                     setNearby(closest);
 
                     // Điều hướng tự động nếu chưa navigate tới booth này
-                    const targetUrl = `/booth/${closest.id}?event=${eventId}&auto=1`;
+                    // 🟢 Gắn kèm ?lang= — nếu thiếu, BoothPage sẽ tự lấy lại
+                    // ngôn ngữ điện thoại (xem useLanguage.js), có thể khác
+                    // với ngôn ngữ khách đang chọn trong app lúc này.
+                    const targetUrl = `/booth/${closest.id}?event=${eventId}&auto=1&lang=${getCurrentLang()}`;
                     if (lastNavRef.current !== closest.id) {
                         lastNavRef.current = closest.id;
                         setTimeout(() => navigate(targetUrl), 800); // delay nhỏ để toast hiện trước

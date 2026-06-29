@@ -51,7 +51,7 @@
 .lang-inline__name { flex: 1; }
 .lang-inline__check { font-size: 1rem; font-weight: 700; color: #2563eb; }
 
-/* Dropdown variant */
+/* ── Dropdown trigger ── */
 .lang-dd { position: relative; display: inline-block; }
 
 .lang-dd__trigger {
@@ -68,6 +68,8 @@
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
   white-space: nowrap;
+  /* Đảm bảo touch target đủ lớn trên mobile */
+  min-height: 44px;
 }
 .lang-dd__trigger:hover,
 .lang-dd__trigger--open {
@@ -76,24 +78,21 @@
   color: #2563eb;
 }
 
-.lang-dd__globe { font-size: 1.05rem; }
+.lang-dd__globe   { font-size: 1.05rem; }
 .lang-dd__current { font-size: 1rem; }
-
-.lang-dd__caret { color: #9ca3af; transition: transform 0.2s; }
+.lang-dd__caret   { color: #9ca3af; transition: transform 0.2s; }
 .lang-dd__caret--up { transform: rotate(180deg); }
 
-.lang-dd__menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.4rem);
-  width: 13rem;
+/* ── Dropdown menu — render qua Portal vào document.body ──
+   Styles layout/color ở đây; position/z-index set inline.    */
+.lang-dd__menu,
+.lang-dd__menu-portal {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 0.65rem;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-  z-index: 300;
-  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
   animation: lang-fade-in 0.12s ease;
+  /* overflow-y & max-height được set inline để tránh bị clip */
 }
 
 .lang-dd__option {
@@ -110,9 +109,13 @@
   text-align: left;
   transition: background 0.12s;
   border-bottom: 1px solid #f9fafb;
+  /* Touch target đủ lớn */
+  min-height: 48px;
+  box-sizing: border-box;
 }
 .lang-dd__option:last-child { border-bottom: none; }
-.lang-dd__option:hover { background: #f9fafb; }
+.lang-dd__option:hover,
+.lang-dd__option:active { background: #f9fafb; }
 .lang-dd__option--active {
   background: #eff6ff;
   color: #2563eb;

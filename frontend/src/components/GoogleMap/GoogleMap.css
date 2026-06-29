@@ -25,3 +25,21 @@
   border: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
+
+/* Cảnh báo khi tile bản đồ tải chậm / lỗi (do mạng) */
+.gmap-tile-warning {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  background: rgba(17, 24, 39, 0.85);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}

@@ -54,7 +54,7 @@ export default function MapPage() {
     const wid = navigator.geolocation.watchPosition(
       (p) => setUserPos({ lat: p.coords.latitude, lng: p.coords.longitude }),
       () => {},
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+      { enableHighAccuracy: false, maximumAge: 10000, timeout: 10000 }
     );
     return () => navigator.geolocation.clearWatch(wid);
   }, []);
@@ -64,8 +64,8 @@ export default function MapPage() {
     // Nếu có eventId → lấy booths của event đó
     // Nếu không có eventId (QR chung) → lấy TẤT CẢ booths active trong DB
     const fetchPromise = eventId
-      ? eventService.getBooths(eventId)
-      : eventService.getAllBooths();
+      ? eventService.getBooths(eventId, lang)
+      : eventService.getAllBooths(lang);
 
     fetchPromise
       .then((data) => setBooths(Array.isArray(data) ? data : []))
@@ -73,7 +73,7 @@ export default function MapPage() {
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]); // Không fetch lại khi đổi lang
+  }, [eventId, lang]);
 
 
   const categories = [...new Set(booths.map(b => b.categoryName).filter(Boolean))];

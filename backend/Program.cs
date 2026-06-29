@@ -7,6 +7,7 @@ using backend.Data;
 using backend.Repositories;
 using backend.Services;
 using backend.Helpers;
+using backend.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -121,7 +122,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// ⚠ FIX: UseHttpsRedirection() bị BỎ trong môi trường Development khi test
+// qua LAN (điện thoại quét QR). Lý do: app chạy HTTP thuần ở 0.0.0.0:5069
+// (xem launchSettings.json), nhưng middleware này tự redirect mọi request
+// HTTP sang HTTPS (cổng 7214) — nơi dùng self-signed dev cert mà điện thoại
+// (không phải máy dev) KHÔNG tin cậy. Gõ URL trực tiếp trên browser thì
+// browser còn cho "Proceed anyway", nhưng khi LandingPage gọi qua
+// axios/fetch (XHR) thì request đó thất bại THẲNG, KHÔNG báo lỗi rõ ràng
+// → trang trắng/treo y như khi không hề kết nối được tới backend.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseStaticFiles();
 app.UseCors("AllowAll");
 app.UseAuthentication();
@@ -145,5 +157,46 @@ try
     }
 }
 catch { }
+
+// ============================================
+// 10. SEED BANG SUPPORTED_LANGUAGE (vi + en mac dinh)
+// ============================================
+// Du an nay khong co thu muc Migrations (xem trong repo) nen tao bang
+// bang raw SQL ngay khi app khoi dong, idempotent — chay lai nhieu lan
+// khong sao (IF NOT EXISTS). Mac dinh luon co vi + en; cac ngon ngu khac
+// (ja, ko, zh, fr) chi xuat hien sau khi co khach THAT quet QR voi dien
+// thoai dang ngon ngu do (xem LanguageController.Detect).
+try
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    db.Database.ExecuteSqlRaw(@"
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SUPPORTED_LANGUAGE')
+        BEGIN
+            CREATE TABLE SUPPORTED_LANGUAGE (
+                Code    VARCHAR(10)   NOT NULL PRIMARY KEY,
+                Label   NVARCHAR(100) NOT NULL,
+                Flag    NVARCHAR(10)  NULL,
+                AddedAt DATETIME2     NOT NULL
+            );
+        END
+    ");
+
+    if (!db.SupportedLanguages.Any())
+    {
+        var now = DateTime.UtcNow;
+        db.SupportedLanguages.AddRange(
+            new SupportedLanguage { Code = "vi", Label = "Tiếng Việt", Flag = "🇻🇳", AddedAt = now },
+            new SupportedLanguage { Code = "en", Label = "English",    Flag = "🇬🇧", AddedAt = now.AddMilliseconds(1) }
+        );
+        db.SaveChanges();
+        Console.WriteLine("Da seed SUPPORTED_LANGUAGE: vi, en");
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[SUPPORTED_LANGUAGE seed] Loi (bo qua, khong chan app khoi dong): {ex.Message}");
+}
 
 app.Run();

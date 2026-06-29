@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import "leaflet/dist/leaflet.css";
 import "./GoogleMap.css";
 
 export default function GoogleMap({
@@ -16,22 +17,13 @@ export default function GoogleMap({
   const userMarkerRef   = useRef(null);
   const pickerMarkerRef = useRef(null);
   const initializedRef  = useRef(false); // chặn double-init StrictMode
+  const [tileSlow, setTileSlow] = useState(false);
+  const [tileError, setTileError] = useState(false);
 
   const defaultCenter = initialCenter
     ?? (booths.length
       ? { lat: parseFloat(booths[0].latitude), lng: parseFloat(booths[0].longitude) }
       : { lat: 15.8801, lng: 108.338 });
-
-  // Load Leaflet CSS
-  useEffect(() => {
-    if (!document.getElementById("leaflet-css")) {
-      const link  = document.createElement("link");
-      link.id     = "leaflet-css";
-      link.rel    = "stylesheet";
-      link.href   = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      document.head.appendChild(link);
-    }
-  }, []);
 
   // Init map — chỉ chạy 1 lần duy nhất
   useEffect(() => {
@@ -39,6 +31,9 @@ export default function GoogleMap({
     if (!containerRef.current)  return;
 
     initializedRef.current = true;
+
+    // Nếu sau 6s vẫn chưa có tile nào load xong -> báo mạng chậm
+    const slowTimer = setTimeout(() => setTileSlow(true), 6000);
 
     import("leaflet").then((L) => {
       // Nếu container đã bị init (StrictMode unmount/remount) thì xóa trước
@@ -52,10 +47,14 @@ export default function GoogleMap({
         zoomControl: true,
       });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '© <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
         maxZoom: 19,
       }).addTo(map);
+
+      // Tile đầu tiên load xong -> tắt cảnh báo chậm
+      tileLayer.on("load", () => { clearTimeout(slowTimer); setTileSlow(false); setTileError(false); });
+      tileLayer.on("tileerror", () => setTileError(true));
 
       mapRef.current = map;
 
@@ -74,6 +73,7 @@ export default function GoogleMap({
     });
 
     return () => {
+      clearTimeout(slowTimer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -144,6 +144,13 @@ export default function GoogleMap({
   return (
     <div className="gmap-wrapper">
       <div ref={containerRef} className="gmap-container" />
+      {tileSlow && (
+        <div className="gmap-tile-warning">
+          {tileError
+            ? "⚠️ Không tải được hình bản đồ — kiểm tra kết nối mạng."
+            : "⏳ Bản đồ đang tải chậm, vui lòng chờ trong giây lát..."}
+        </div>
+      )}
     </div>
   );
 }

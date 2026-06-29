@@ -9,7 +9,7 @@ import LoadingSpinner from "../../components/LoadingSpinner/LoadingSpinner";
 import boothService from "../../services/boothService";
 import eventService from "../../services/eventService";
 import accountService from "../../services/accountService";
-import categoryService from "../../services/categoryService";
+import categoryService from "../../services/CategoryService";
 import "./BoothManagementPage.css";
 
 // ─── Constants ────────────────────────────────────────────────

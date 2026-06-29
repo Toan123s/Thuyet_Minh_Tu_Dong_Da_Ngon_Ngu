@@ -1,95 +1,134 @@
 // ─── Speech Service ────────────────────────────────────────────
-// Ưu tiên: Azure TTS → Web Speech API (fallback)
-// Fix: chọn đúng voice cho từng ngôn ngữ trên mobile
+// Thứ tự ưu tiên:
+//   1. Azure TTS (nếu có key) — chất lượng tốt nhất
+//   2. Google TTS qua proxy backend — free, không cần key, đủ ngôn ngữ
+//   3. Web Speech API — fallback cuối, phụ thuộc voice thiết bị
 
 import apiClient from "./apiClient";
 
-const LANG_MAP = {
+const LANG_BCP47 = {
   vi: "vi-VN", en: "en-US", ja: "ja-JP",
   zh: "zh-CN", ko: "ko-KR", fr: "fr-FR",
 };
 
-async function generateAzureAudio(text, languageCode) {
+// ── Gọi Azure TTS ─────────────────────────────────────────────
+async function tryAzureTTS(text, languageCode) {
   try {
     const res = await apiClient.post("/speech/generate", { text, languageCode });
-    return res?.audioUrl || null;
+    return res?.audioUrl ?? null;
   } catch {
     return null;
   }
 }
 
-// Tìm voice phù hợp nhất cho ngôn ngữ — quan trọng trên mobile
-function getBestVoice(langCode) {
-  const bcp47 = LANG_MAP[langCode] || "vi-VN";
-  const voices = window.speechSynthesis.getVoices();
-  if (!voices.length) return null;
+// ── Gọi Google TTS proxy (backend /api/speech/gtts) ──────────
+async function tryGoogleTTS(text, languageCode) {
+  try {
+    const res = await apiClient.post("/speech/gtts", { text, languageCode });
+    return res?.audioUrl ?? null;
+  } catch {
+    return null;
+  }
+}
 
-  // Ưu tiên: exact match lang-REGION
-  let voice = voices.find(v => v.lang === bcp47);
-  if (voice) return voice;
+// ── Phát audio từ URL ─────────────────────────────────────────
+async function playAudioUrl(url, audioElRef, onPlayStateChange) {
+  if (!audioElRef?.current) return false;
+  const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:5069/api").replace("/api", "");
+  const audio   = audioElRef.current;
+  audio.pause();
+  audio.src     = url.startsWith("http") ? url : `${apiBase}${url}`;
+  audio.onended = () => onPlayStateChange?.(false);
+  audio.onerror = () => onPlayStateChange?.(false);
+  try {
+    await audio.play();
+    onPlayStateChange?.(true);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-  // Fallback: match prefix (vi, ja, zh...)
+// ── Web Speech API fallback ───────────────────────────────────
+function getVoicesAsync() {
+  return new Promise((resolve) => {
+    const voices = window.speechSynthesis?.getVoices() ?? [];
+    if (voices.length > 0) { resolve(voices); return; }
+    const handler = () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", handler);
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", handler);
+    setTimeout(() => {
+      window.speechSynthesis.removeEventListener("voiceschanged", handler);
+      resolve(window.speechSynthesis?.getVoices() ?? []);
+    }, 2000);
+  });
+}
+
+function getBestVoice(langCode, voices) {
+  const bcp47  = LANG_BCP47[langCode] || "vi-VN";
   const prefix = bcp47.split("-")[0];
-  voice = voices.find(v => v.lang.startsWith(prefix));
-  if (voice) return voice;
-
-  return null;
+  return voices.find(v => v.lang === bcp47)
+      || voices.find(v => v.lang.startsWith(prefix + "-"))
+      || voices.find(v => v.lang.startsWith(prefix))
+      || null;
 }
 
 const speechService = {
   async speak({ text, languageCode, onPlayStateChange, audioElRef }) {
-    if (!text) { onPlayStateChange?.(false); return { source: null, stop: () => {} }; }
+    if (!text) { onPlayStateChange?.(false); return { stop: () => {} }; }
 
-    // ── Ưu tiên: Azure TTS ─────────────────────────────────────
-    const azureUrl = await generateAzureAudio(text, languageCode);
-    if (azureUrl && audioElRef?.current) {
-      const audio = audioElRef.current;
-      const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5069/api').replace('/api', '');
-      audio.src = azureUrl.startsWith('http') ? azureUrl : `${apiBase}${azureUrl}`;
-      audio.onended = () => onPlayStateChange?.(false);
-      audio.onerror = () => onPlayStateChange?.(false);
-      await audio.play();
-      onPlayStateChange?.(true);
-      return { source: "azure", stop: () => { audio.pause(); onPlayStateChange?.(false); } };
+    // ── 1. Azure TTS ──────────────────────────────────────────
+    const azureUrl = await tryAzureTTS(text, languageCode);
+    if (azureUrl) {
+      const ok = await playAudioUrl(azureUrl, audioElRef, onPlayStateChange);
+      if (ok) {
+        return {
+          source: "azure",
+          stop: () => {
+            if (audioElRef?.current) { audioElRef.current.pause(); audioElRef.current.src = ""; }
+            onPlayStateChange?.(false);
+          },
+        };
+      }
     }
 
-    // ── Fallback: Web Speech API ────────────────────────────────
+    // ── 2. Google TTS proxy ───────────────────────────────────
+    // Hoạt động với vi/en/ja/ko/zh/fr, không cần cấu hình thêm
+    const gttsUrl = await tryGoogleTTS(text, languageCode);
+    if (gttsUrl) {
+      const ok = await playAudioUrl(gttsUrl, audioElRef, onPlayStateChange);
+      if (ok) {
+        return {
+          source: "gtts",
+          stop: () => {
+            if (audioElRef?.current) { audioElRef.current.pause(); audioElRef.current.src = ""; }
+            onPlayStateChange?.(false);
+          },
+        };
+      }
+    }
+
+    // ── 3. Web Speech API fallback ────────────────────────────
     if (!window.speechSynthesis) {
       onPlayStateChange?.(false);
-      return { source: null, stop: () => {} };
+      return { stop: () => {} };
     }
 
     window.speechSynthesis.cancel();
-
+    const voices    = await getVoicesAsync();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang  = LANG_MAP[languageCode] || "vi-VN";
-    utterance.rate  = 0.9;   // chậm hơn một chút, dễ nghe hơn
-    utterance.pitch = 1.0;
+    utterance.lang  = LANG_BCP47[languageCode] || "vi-VN";
+    utterance.rate  = 0.88;
 
-    // Chờ voices load xong (mobile thường cần thêm thời gian)
-    const trySpeak = () => {
-      const voice = getBestVoice(languageCode);
-      if (voice) utterance.voice = voice;
-      utterance.onend   = () => onPlayStateChange?.(false);
-      utterance.onerror = () => onPlayStateChange?.(false);
-      window.speechSynthesis.speak(utterance);
-      onPlayStateChange?.(true);
-    };
+    const voice = getBestVoice(languageCode, voices);
+    if (voice) utterance.voice = voice;
 
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      trySpeak();
-    } else {
-      // Mobile cần chờ voices load
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        trySpeak();
-      };
-      // Timeout 1s nếu onvoiceschanged không fire
-      setTimeout(() => {
-        if (!utterance.voice) trySpeak();
-      }, 1000);
-    }
+    utterance.onend   = () => onPlayStateChange?.(false);
+    utterance.onerror = () => onPlayStateChange?.(false);
+    window.speechSynthesis.speak(utterance);
+    onPlayStateChange?.(true);
 
     return {
       source: "webspeech",
@@ -99,7 +138,10 @@ const speechService = {
 
   stopAll(audioElRef) {
     window.speechSynthesis?.cancel();
-    if (audioElRef?.current) audioElRef.current.pause();
+    if (audioElRef?.current) {
+      audioElRef.current.pause();
+      audioElRef.current.src = "";
+    }
   },
 };
 
